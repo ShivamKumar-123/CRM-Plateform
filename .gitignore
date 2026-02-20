@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Environment variables
+backend/backendCRM/.env
+
+# SQLite
+backend/backendCRM/db.sqlite3
+
+# Node
+frontend/node_modules/
+
+# Build
+frontend/dist/
+frontend/build/
+
+# Logs
+*.log
+
+# VS Code
+.vscode/
