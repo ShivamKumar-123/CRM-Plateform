@@ -2,8 +2,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Count, Sum, F, DecimalField, Value
 from django.db.models.functions import Coalesce
-from .models import Leads, Deal, Payment
-from .serializers import DashboardSerializer, LeadAdminAndStaffSerializer, LeadOtherSerializer
+from .models import Leads, Deal, Payment, Document
+from .serializers import DashboardSerializer, LeadAdminAndStaffSerializer, LeadOtherSerializer, DealAdminSerializer, DealOtherSerializer, DocumentAdminSerializer, DocumentOtherSerializer, PaymentSerializer
+from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import get_object_or_404
+
+
+
 
 # dashboard data 
 
@@ -74,92 +79,366 @@ class Dashboard(APIView):
 
 class LeadsData(APIView):
 
-    def get(self, request):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, lead_id=None):
 
         user = request.user
 
         if user.is_staff or user.role == 'ADMIN':
             queryset = Leads.objects.select_related('assigned_to').all()
-            serializer = LeadAdminAndStaffSerializer(queryset, many=True)
-
+            serializer_class = LeadAdminAndStaffSerializer
         else:
             queryset = Leads.objects.select_related('assigned_to').filter(
                 assigned_to=user
             )
-            serializer = LeadOtherSerializer(queryset, many=True)
+            serializer_class = LeadOtherSerializer
 
+        # single lead
+        if lead_id:
+            lead = get_object_or_404(queryset, id=lead_id)
+            serializer = serializer_class(lead)
+            return Response(serializer.data)
+
+        # list
+        serializer = serializer_class(queryset, many=True)
         return Response(serializer.data)
 
-            
 
     def post(self, request):
 
-        user = request.user
-
-        if not (user.is_staff or user.role == 'ADMIN'):
-            return Response({"error": "You do not have permission to create leads."}, status=403)
-        
         serializer = LeadAdminAndStaffSerializer(data=request.data)
 
         if serializer.is_valid():
-            serializer.save()
-            return Response({"message": "Lead created successfully.", "lead": serializer.data}, status=201)
-        
-        return Response({"error": "Invalid data.", "details": serializer.errors}, status=400)
-    
+
+            if request.user.is_staff or request.user.role == 'ADMIN':
+                serializer.save()
+            else:
+                serializer.save(assigned_to=request.user, )
+
+            return Response(
+                {"message": "Lead created successfully", "lead": serializer.data},
+                status=201
+            )
+
+        return Response(serializer.errors, status=400)
+
 
     def put(self, request, lead_id):
-        pass
 
-        # user = request.user
+        user = request.user
+        lead = get_object_or_404(Leads, id=lead_id)
 
-        # if not (user.is_staff or user.role == 'ADMIN'):
-        #     return Response({"error": "You do not have permission to update leads."}, status=403)
+        if not (user.is_staff or user.role == 'ADMIN'):
+            if lead.assigned_to != user:
+                return Response({"error": "Permission denied"}, status=403)
 
-        # try:
-        #     lead = Leads.objects.get(id=lead_id)
-        # except Leads.DoesNotExist:
-        #     return Response({"error": "Lead not found."}, status=404)
+        serializer = LeadAdminAndStaffSerializer(
+            lead,
+            data=request.data,
+            partial=True
+        )
 
-        # serializer = LeadAdminAndStaffSerializer(lead, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
 
-        # if serializer.is_valid():
-        #     serializer.save()
-        #     return Response({"message": "Lead updated successfully.", "lead": serializer.data}, status=200)
-        
-        # return Response({"error": "Invalid data.", "details": serializer.errors}, status=400)
-
-        def delete(self, request, lead_id):
-            pass
-
-            # user = request.user
-
-            # if not (user.is_staff or user.role == 'ADMIN'):
-            #     return Response({"error": "You do not have permission to delete leads."}, status=403)
-
-            # try:
-            #     lead = Leads.objects.get(id=lead_id)
-            # except Leads.DoesNotExist:
-            #     return Response({"error": "Lead not found."}, status=404)
-
-            # lead.delete()
-            # return Response({"message": "Lead deleted successfully."}, status=200)
+        return Response(serializer.errors, status=400)
 
 
+    def delete(self, request, lead_id):
+
+        user = request.user
+        lead = get_object_or_404(Leads, id=lead_id)
+
+        if not (user.is_staff or user.role == 'ADMIN'):
+            if lead.assigned_to != user:
+                return Response({"error": "Permission denied"}, status=403)
+
+        lead.delete()
+
+        return Response({"message": "Lead deleted successfully"}, status=200)
 
 # deal data 
 
 class DealData(APIView):
+
+    permission_classes = [IsAuthenticated]
     
-    def get(self, request):
-            pass
-    
+    def get(self, request, deal_id=None):
+            user = request.user
+            print("User in DealData GET:", user)
+
+            # list all deal data 
+
+            if user.is_staff or user.role == 'ADMIN':
+                queryset = Deal.objects.select_related('lead').all()
+                serializer = DealAdminSerializer(queryset, many=True)
+
+            else:
+                queryset = Deal.objects.select_related('lead').filter(
+                    assigned_to=user
+                )
+                serializer = DealOtherSerializer(queryset, many=True)
+
+            # single deal data
+            if deal_id:
+                if user.is_staff or user.role == 'ADMIN':
+                    deal = get_object_or_404(Deal, id=deal_id)
+                    serializer = DealAdminSerializer(deal)
+
+                else:
+                    deal = get_object_or_404(
+                        Deal,
+                        id=deal_id,
+                        assigned_to=user
+                    )
+                    serializer = DealOtherSerializer(deal)
+
+            return Response(serializer.data)
+
+    #create deal data = any one can create deal data but if user is admin or staff then they can assign deal to any one but if user is other than admin or staff then deal will be automatically assigned to them
+
     def post(self, request):
-        pass
+        serializer = DealAdminSerializer(data=request.data)
+
+        if serializer.is_valid():
+            if request.user.is_staff or request.user.role == 'ADMIN':
+                serializer.save()
+
+            else:
+                serializer.save(assigned_to=request.user)
+
+            return Response({"message": "Deal created successfully", "deal": serializer.data}, status=201)
+
+        return Response({"error": "Invalid data", "details": serializer.errors}, status=400)
+    
+
+    # update deal data = any one can update deal data but if user is admin or staff then they can update any deal data but if user is other than admin or staff then they can update only their assigned deal data
 
     def put(self, request, deal_id):
-        pass
+        user = request.user
+
+        if user.is_staff or user.role == 'ADMIN':
+            deal = get_object_or_404(Deal, id=deal_id)
+        else:
+            deal = get_object_or_404(Deal, id=deal_id,assigned_to=user)
+
+        serializer = DealAdminSerializer(deal, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Deal updated successfully", "deal": serializer.data})
+        
+        return Response({"error": "Invalid data", "details": serializer.errors}, status=400)
+
+    # delete deal data = only admin or staff can delete deal data
 
     def delete(self, request, deal_id):
-        pass
+        user = request.user
+
+        if not (user.is_staff or user.role == 'ADMIN'):
+            return Response({"error": "Permission denied"}, status=403)
         
+        deal = get_object_or_404(Deal, id=deal_id)
+        deal.delete()
+
+        return Response({"message": "Deal deleted successfully"}, status=200)
+            
+        
+
+
+class DocumnetData(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    # 🔹 LIST or RETRIEVE
+    def get(self, request, doc_id=None):
+
+        user = request.user
+
+        if user.is_staff or user.role == 'ADMIN':
+            queryset = Document.objects.select_related('lead').all()
+        else:
+            queryset = Document.objects.select_related('lead').filter(
+                lead__assigned_to=user
+            )
+
+        # 👉 Single Document
+        if doc_id:
+            document = get_object_or_404(queryset, id=doc_id)
+            serializer = DocumentAdminSerializer(document)
+            return Response(serializer.data)
+
+        # 👉 List
+        serializer = DocumentAdminSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    # create document
+
+    def post(self, request):
+
+        user = request.user
+        serializer = DocumentAdminSerializer(data=request.data)
+
+        if serializer.is_valid():
+
+            lead = serializer.validated_data.get("lead")
+
+            # Non-admin user check
+            if not (user.is_staff or user.role == "ADMIN"):
+                if lead.assigned_to != user:
+                    return Response(
+                        {"error": "You can only add document to your assigned leads"},
+                        status=403
+                    )
+
+            serializer.save()
+
+            return Response({
+                "message": "Document created successfully",
+                "data": serializer.data
+            }, status=201)
+        
+        return Response({
+            "error": "Invalid Data",
+            "details": serializer.errors
+        }, status=400)
+
+    # 🔹 UPDATE
+    def put(self, request, doc_id):
+
+        user = request.user
+
+        if user.is_staff or user.role == 'ADMIN':
+            document = get_object_or_404(Document, id=doc_id)
+        else:
+            document = get_object_or_404(
+                Document,
+                id=doc_id,
+                lead__assigned_to=user
+            )
+
+        serializer = DocumentAdminSerializer(document, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "message": "Document updated successfully",
+                "data": serializer.data
+            })
+
+        return Response({
+            "error": "Invalid Data",
+            "details": serializer.errors
+        }, status=400)
+
+    # 🔹 DELETE
+    def delete(self, request, doc_id):
+
+        user = request.user
+
+        # 👉 Only Admin / Staff
+        if not (user.is_staff or user.role == 'ADMIN'):
+            return Response({"error": "Permission denied"}, status=403)
+
+        document = get_object_or_404(Document, id=doc_id)
+        document.delete()
+
+        return Response({"message": "Document deleted successfully"})
+    
+
+
+# Payment Document view here
+
+class PaymentDocuments(APIView):
+    
+    permission_classes = [IsAuthenticated]
+
+    # get all data or single data
+
+    def get(self, request, payment_id = None):
+        user = request.user
+
+        # for all user show all data 
+
+        if user.is_staff or user.role == 'ADMIN':
+            queryset = Payment.objects.select_related('deal').all()
+        else:
+            queryset = Payment.objects.select_related('deal').filter(
+                deal__assigned_to=user
+            )
+
+        # for single data
+        if payment_id:
+            payment = get_object_or_404(queryset, id=payment_id)
+            serializer = PaymentSerializer(payment)
+            return Response(serializer.data)
+        
+        serializer = PaymentSerializer(queryset, many=True)
+
+        return Response(serializer.data)
+        
+
+
+    # create payment data = any one can create payment data but if user is admin or staff then they can assign payment to any one but if user is other than admin or staff then payment will be automatically assigned to them based on deal assigned to them
+
+    def post(self, request):
+        user = request.user
+        serializer = PaymentSerializer(data=request.data)
+
+        if serializer.is_valid():
+
+            deal = serializer.validated_data.get("deal")
+
+            # Non-admin user check
+
+            if not (user.is_staff or user.role == "ADMIN"):
+                if deal.assigned_to != user:
+                    return Response(
+                        {"error": "You can only add payment to your assigned deals"},
+                        status=403
+                    )
+            serializer.save()
+            return Response({
+                "message": "Payment created successfully",
+                "data": serializer.data
+            }, status=201)
+        
+        
+
+    # update payment data = any one can update payment data but if user is admin or staff then they can update any payment data but if user is other than admin or staff then they can update only their assigned payment data based on deal assigned to them
+
+    def put(self, request, payment_id):
+        user = request.user
+
+        if user.is_staff or user.role == 'ADMIN':
+            payment = get_object_or_404(Payment, id=payment_id)
+        else:
+            payment = get_object_or_404(Payment, id=payment_id, deal__assigned_to=user)
+
+        serializer = PaymentSerializer(payment, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "message": "Payment updated successfully",
+                "data": serializer.data
+            })
+        
+        return Response({
+            "error": "Invalid Data",
+            "details": serializer.errors
+        }, status=400)
+
+    # delete payment data = only admin or staff can delete payment data
+    def delete(self, request, payment_id):
+        user = request.user
+
+        if not(user.is_staff or user.role == 'ADMIN'):
+            return Response({"error": "Permission denied"}, status=403)
+        
+        payment = get_object_or_404(Payment, id=payment_id)
+        payment.delete()
+
+        return Response({"message": "Payment deleted successfully"}, status=200)

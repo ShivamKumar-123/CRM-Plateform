@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Leads, Deal, Payment
+from .models import Leads, Deal, Payment, Document
 
 class DashboardSerializer(serializers.Serializer):
     total_leads = serializers.IntegerField()
@@ -83,11 +83,18 @@ class LeadAdminAndStaffSerializer(serializers.ModelSerializer):
 class LeadOtherSerializer(serializers.ModelSerializer):
     assigned_to_username = serializers.CharField(source='assigned_to.username', read_only=True)
 
+
     class Meta:
         model = Leads
         fields = [
             'id',
+            'leads_source',
             'name',
+            'email',
+            'phone',
+            'city',
+            'state',
+            'pincode',
             'brand_name',
             'model_name',
             'watt_capacity',
@@ -100,6 +107,112 @@ class LeadOtherSerializer(serializers.ModelSerializer):
 
 class DealAdminSerializer(serializers.ModelSerializer):
     
+    name = serializers.CharField(source='lead.name', read_only=True)
+    phone = serializers.CharField(source='lead.phone', read_only=True)
+    city = serializers.CharField(source='lead.city', read_only=True)
+    state = serializers.CharField(source='lead.state', read_only=True)
+    brand_name = serializers.CharField(source='lead.brand_name', read_only=True)
+    model_name = serializers.CharField(source='lead.model_name', read_only=True)
+    waatt_capacity = serializers.CharField(source='lead.watt_capacity', read_only=True)
+    base_price = serializers.DecimalField(source='lead.base_price', max_digits=10, decimal_places=2, read_only=True)
+
+
+
     class Meta:
         model = Deal
+        fields = '__all__'
+
+
+class DealOtherSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source='lead.name', read_only=True)
+    phone = serializers.CharField(source='lead.phone', read_only=True)
+    city = serializers.CharField(source='lead.city', read_only=True)
+    state = serializers.CharField(source='lead.state', read_only=True)
+    brand_name = serializers.CharField(source='lead.brand_name', read_only=True)
+    model_name = serializers.CharField(source='lead.model_name', read_only=True)
+    waatt_capacity = serializers.CharField(source='lead.watt_capacity', read_only=True)
+    base_price = serializers.DecimalField(source='lead.base_price', max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = Deal
+        fields = [
+            'id',
+            'name',
+            'phone',
+            'city',
+            'state',
+            'brand_name',
+            'model_name',
+            'waatt_capacity',
+            'base_price',
+            'deal_value',
+            'cost_price',
+            'expected_close_date',
+            'status',
+            'created_at'
+        ]
+
+
+class DocumentAdminSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source='lead.name', read_only=True)
+    phone = serializers.CharField(source='lead.phone', read_only=True)
+    city = serializers.CharField(source='lead.city', read_only=True)
+    state = serializers.CharField(source='lead.state', read_only=True)
+    brand_name = serializers.CharField(source='lead.brand_name', read_only=True)
+    model_name = serializers.CharField(source='lead.model_name', read_only=True)
+    watt_capacity = serializers.CharField(source='lead.watt_capacity', read_only=True)
+
+    class Meta:
+        model = Document
+        fields = '__all__'
+
+
+
+class DocumentOtherSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source='lead.name', read_only=True)
+    phone = serializers.CharField(source='lead.phone', read_only=True)
+    city = serializers.CharField(source='lead.city', read_only=True)
+    state = serializers.CharField(source='lead.state', read_only=True)
+    brand_name = serializers.CharField(source='lead.brand_name', read_only=True)
+    model_name = serializers.CharField(source='lead.model_name', read_only=True)
+    watt_capacity = serializers.CharField(source='lead.watt_capacity', read_only=True)
+
+    class Meta:
+        model = Document
+        fields = [
+            'id',
+            'name',
+            'phone',
+            'city',
+            'state',
+            'brand_name',
+            'model_name',
+            'watt_capacity',
+            'document_type',
+            'document_file',
+            'created_at'
+        ]
+
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+
+    name = serializers.CharField(source='deal.lead.name', read_only=True)
+    phone = serializers.CharField(source='deal.lead.phone', read_only=True)
+    city = serializers.CharField(source='deal.lead.city', read_only=True)
+    state = serializers.CharField(source='deal.lead.state', read_only=True)
+
+    brand_name = serializers.CharField(source='deal.lead.brand_name', read_only=True)
+    model_name = serializers.CharField(source='deal.lead.model_name', read_only=True)
+    watt_capacity = serializers.CharField(source='deal.lead.watt_capacity', read_only=True)
+
+    deal_value = serializers.DecimalField(
+        source='deal.deal_value',
+        max_digits=12,
+        decimal_places=2,
+        read_only=True
+    )
+
+    class Meta:
+        model = Payment
         fields = '__all__'

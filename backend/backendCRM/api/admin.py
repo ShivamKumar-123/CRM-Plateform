@@ -31,9 +31,135 @@ class CustomUserAdmin(UserAdmin):
 
 
 
-admin.site.register(Leads)
-admin.site.register(Deal)
-admin.site.register(Payment)
-admin.site.register(Document)
+# Territories Admin
+@admin.register(Teritories)
+class TerritoriesAdmin(admin.ModelAdmin):
+    list_display = ("state", "district", "city", "pincode", "created_at")
+    search_fields = ("state", "district", "city", "pincode")
+    list_filter = ("state", "district")
+    ordering = ("state", "district")
 
-admin.site.register(Teritories)
+
+# Leads Admin
+@admin.register(Leads)
+class LeadsAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "name",
+        "phone",
+        "city",
+        "state",
+        "brand_name",
+        "watt_capacity",
+        "status",
+        "assigned_to",
+        "created_at",
+    )
+
+    search_fields = (
+        "name",
+        "phone",
+        "email",
+        "city",
+        "state",
+    )
+
+    list_filter = (
+        "status",
+        "brand_name",
+        "model_name",
+        "watt_capacity",
+        "leads_source",
+        "created_at",
+    )
+
+    autocomplete_fields = ("assigned_to",)
+
+    ordering = ("-created_at",)
+    date_hierarchy = "created_at"
+
+
+# Deal Admin
+@admin.register(Deal)
+class DealAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "lead",
+        "assigned_to",
+        "deal_value",
+        "cost_price",
+        "status",
+        "expected_close_date",
+        "created_at",
+    )
+
+    search_fields = (
+        "lead__name",
+        "lead__phone",
+    )
+
+    list_filter = (
+        "status",
+        "assigned_to",
+        "created_at",
+    )
+
+    autocomplete_fields = ("lead", "assigned_to")
+
+    ordering = ("-created_at",)
+    date_hierarchy = "created_at"
+
+
+# Payment Admin
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "deal",
+        "payment_type",
+        "payment_stage",
+        "amount_paid",
+        "total_amount",
+        "created_at",
+    )
+
+    search_fields = (
+        "deal__lead__name",
+        "reference_number",
+    )
+
+    list_filter = (
+        "payment_type",
+        "payment_stage",
+        "created_at",
+    )
+
+    autocomplete_fields = ("deal",)
+
+    ordering = ("-created_at",)
+    date_hierarchy = "created_at"
+
+
+# Document Admin
+@admin.register(Document)
+class DocumentAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "lead",
+        "document_type",
+        "created_at",
+    )
+
+    search_fields = (
+        "lead__name",
+    )
+
+    list_filter = (
+        "document_type",
+        "created_at",
+    )
+
+    autocomplete_fields = ("lead",)
+
+    ordering = ("-created_at",)
+    date_hierarchy = "created_at"
