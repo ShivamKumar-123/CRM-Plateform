@@ -323,3 +323,96 @@ class Document(models.Model):
     def __str__(self):
         return f"{self.get_document_type_display()} - {self.lead.name}"
 
+
+# Task table here
+
+class Task(models.Model):
+
+    STATUS_CHOICES = [
+        ("PENDING", "Pending"),
+        ("IN_PROGRESS", "In Progress"),
+        ("COMPLETED", "Completed"),
+    ]
+
+    PRIORITY_CHOICES = [
+        ("LOW", "Low"),
+        ("MEDIUM", "Medium"),
+        ("HIGH", "High"),
+    ]
+
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+
+    assigned_to = models.ForeignKey(
+        'User',
+        on_delete=models.CASCADE,
+        related_name="tasks"
+    )
+
+    created_by = models.ForeignKey(
+        'User',
+        on_delete=models.CASCADE,
+        related_name="created_tasks"
+    )
+
+    due_date = models.DateField(null=True, blank=True)
+
+    priority = models.CharField(
+        max_length=10,
+        choices=PRIORITY_CHOICES,
+        default="MEDIUM"
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="PENDING"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} - {self.status}"
+    
+
+# task message
+
+class TaskMessage(models.Model):
+
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name="messages"
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE
+    )
+
+    message = models.TextField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+
+        msg = self.message.lower()
+
+        if "complete" in msg:
+            self.task.status = "COMPLETED"
+
+        elif "nhi hua" in msg or "not done" in msg:
+            self.task.status = "PENDING"
+
+        elif "working" in msg or "progress" in msg:
+            self.task.status = "IN_PROGRESS"
+
+        # task status update
+        if self.task:
+            self.task.save()
+
+        super().save(*args, **kwargs)

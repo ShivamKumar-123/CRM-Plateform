@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Leads, Deal, Payment, Document
+from .models import Leads, Deal, Payment, Document, Task, TaskMessage
 
 class DashboardSerializer(serializers.Serializer):
     total_leads = serializers.IntegerField()
@@ -216,3 +216,32 @@ class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = '__all__'
+
+
+
+# Task Serializer 
+
+class TaskSerializer(serializers.ModelSerializer):
+    assigned_to_username = serializers.CharField(source='assigned_to.username', read_only=True)
+
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True)
+
+    class Meta:
+        model = Task
+        fields = '__all__'
+
+
+
+# task messege serializer
+
+class TaskMessageSerializer(serializers.ModelSerializer):
+
+    username = serializers.CharField(
+        source="user.username",
+        read_only=True
+    )
+
+    class Meta:
+        model = TaskMessage
+        fields = "__all__"
+        read_only_fields = ["user", "task", "created_at"]

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, Leads, Deal, Payment, Document, Teritories
+from .models import User, Leads, Deal, Payment, Document, Teritories, Task, TaskMessage
 
 
 @admin.register(User)
@@ -163,3 +163,67 @@ class DocumentAdmin(admin.ModelAdmin):
 
     ordering = ("-created_at",)
     date_hierarchy = "created_at"
+
+
+# Inline messages inside Task
+class TaskMessageInline(admin.TabularInline):
+    model = TaskMessage
+    extra = 0
+    readonly_fields = ("user", "message", "created_at")
+
+
+# Task Admin
+@admin.register(Task)
+class TaskAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "id",
+        "title",
+        "assigned_to",
+        "due_date",
+        "status",
+        "created_at",
+    )
+
+    search_fields = (
+        "title",
+        "description",
+    )
+
+    list_filter = (
+        "status",
+        "assigned_to",
+        "due_date",
+        "created_at",
+    )
+
+    autocomplete_fields = ("assigned_to",)
+
+    ordering = ("-created_at",)
+
+    date_hierarchy = "created_at"
+
+    inlines = [TaskMessageInline]
+
+
+# TaskMessage Admin
+@admin.register(TaskMessage)
+class TaskMessageAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "id",
+        "task",
+        "user",
+        "message",
+        "created_at",
+    )
+
+    search_fields = (
+        "message",
+    )
+
+    list_filter = (
+        "created_at",
+    )
+
+    ordering = ("-created_at",)
