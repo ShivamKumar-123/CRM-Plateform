@@ -2,6 +2,8 @@ import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Bell, User, Zap } from "lucide-react";
+import ThemeToggle from "../ThemeToggle.jsx";
+import NotificationBell from "../NotificationBell.jsx";
 
 /* ── Variants ── */
 const navbarVariant = {
@@ -74,10 +76,10 @@ function Navbar({ setSidebarOpen }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const navItems = [
-    { name: "Dashboard", path: "/" },
-    { name: "Leads", path: "/leads" },
-    { name: "Customers", path: "/customers" },
-    { name: "Reports", path: "/reports" },
+    { name: "Dashboard", path: "/app" },
+    { name: "Leads", path: "/app/leads" },
+    { name: "Customers", path: "/app/customers" },
+    { name: "Reports", path: "/app/reports" },
   ];
 
   return (
@@ -138,7 +140,7 @@ function Navbar({ setSidebarOpen }) {
               <motion.div key={item.name} variants={linkVariant}>
                 <NavLink
                   to={item.path}
-                  end={item.path === "/"}
+                  end={item.path === "/app"}
                   className={({ isActive }) =>
                     `relative text-sm font-medium tracking-wide transition-colors duration-200 pb-1 ${
                       isActive
@@ -180,23 +182,13 @@ function Navbar({ setSidebarOpen }) {
             initial="hidden"
             animate="show"
           >
-            <motion.button
-              variants={rightItemVariant}
-              whileHover={{ scale: 1.08, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              className="relative w-10 h-10 rounded-xl bg-white/4 border border-sky-500/20 flex items-center justify-center text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 hover:border-sky-400/40 transition-colors duration-200"
-            >
-              <Bell size={18} />
-              <motion.span
-                className="absolute -top-1.5 -right-1.5 w-[18px] h-[18px] rounded-full bg-gradient-to-br from-yellow-300 to-amber-500 text-black text-[10px] font-bold flex items-center justify-center border-2 border-black"
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.8, type: "spring", stiffness: 400 }}
-                style={{ boxShadow: "0 0 8px rgba(250,204,21,0.7)" }}
-              >
-                3
-              </motion.span>
-            </motion.button>
+            <motion.div variants={rightItemVariant}>
+              <ThemeToggle />
+            </motion.div>
+
+            <motion.div variants={rightItemVariant}>
+              <NotificationBell />
+            </motion.div>
 
             <motion.button
               variants={rightItemVariant}
@@ -236,7 +228,7 @@ function Navbar({ setSidebarOpen }) {
                 <motion.div key={item.name} variants={mobileItemVariant}>
                   <NavLink
                     to={item.path}
-                    end={item.path === "/"}
+                    end={item.path === "/app"}
                     onClick={() => setIsOpen(false)}
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium tracking-wide border transition-colors duration-200 ${

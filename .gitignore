@@ -10,6 +10,9 @@ env/
 
 # Environment variables
 backend/backendCRM/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
 
 # SQLite
 backend/backendCRM/db.sqlite3
@@ -20,6 +23,8 @@ frontend/node_modules/
 # Build
 frontend/dist/
 frontend/build/
+backend/backendCRM/staticfiles/
+backend/backendCRM/media/
 
 # Logs
 *.log

@@ -1,5 +1,106 @@
 from rest_framework import serializers
-from .models import Leads, Deal, Payment, Document, Task, TaskMessage
+from django.contrib.auth import get_user_model
+from .models import (
+    Leads, Deal, Payment, Document, Task, TaskMessage,
+    Organization, Pipeline, PipelineStage,
+    AutomationRule, WhatsAppConfig, WhatsAppMessage,
+    Plan, Subscription, Invoice,
+    CustomField, CustomFieldValue,
+    AuditLog, TwoFactorSecret, Notification,
+)
+
+User = get_user_model()
+
+
+# ─── Organization & Pipeline ─────────────────────────────────────
+
+class OrganizationSerializer(serializers.ModelSerializer):
+    owner_username = serializers.CharField(source="owner.username", read_only=True)
+    user_count  = serializers.IntegerField(read_only=True)
+    lead_count  = serializers.IntegerField(read_only=True)
+    deal_count  = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Organization
+        fields = [
+            "id", "name", "slug", "industry", "plan", "status",
+            "owner", "owner_username",
+            "primary_color", "accent_color",
+            "max_users", "max_leads", "max_storage_mb",
+            "email", "phone", "address",
+            "trial_ends_at",
+            "user_count", "lead_count", "deal_count",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["slug", "created_at", "updated_at"]
+
+
+class PipelineStageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PipelineStage
+        fields = ["id", "name", "slug", "color", "order", "is_closed_won", "is_closed_lost"]
+
+
+class PipelineSerializer(serializers.ModelSerializer):
+    stages = PipelineStageSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Pipeline
+        fields = ["id", "module", "name", "is_default", "stages", "created_at"]
+
+
+class MeSerializer(serializers.ModelSerializer):
+    """Current logged-in user — returned by /api/me/."""
+    organization = OrganizationSerializer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id", "username", "email", "first_name", "last_name",
+            "role", "status", "company_name", "gst_number",
+            "is_staff", "is_superuser", "is_active",
+            "date_joined", "last_login",
+            "organization",
+        ]
+        read_only_fields = fields
+
+
+class AdminUserListSerializer(serializers.ModelSerializer):
+    """Lightweight row for the super-admin users table."""
+    lead_count = serializers.IntegerField(read_only=True)
+    deal_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id", "username", "email", "first_name", "last_name",
+            "role", "status", "is_staff", "is_superuser", "is_active",
+            "company_name", "gst_number",
+            "date_joined", "last_login",
+            "lead_count", "deal_count",
+        ]
+
+
+class AdminUserWriteSerializer(serializers.ModelSerializer):
+    """Used for PATCH updates from super admin (role, status, flags, password)."""
+    password = serializers.CharField(write_only=True, required=False, min_length=8)
+
+    class Meta:
+        model = User
+        fields = [
+            "username", "email", "first_name", "last_name",
+            "role", "status", "is_active", "is_staff", "is_superuser",
+            "company_name", "gst_number", "password",
+        ]
+
+    def update(self, instance, validated_data):
+        pw = validated_data.pop("password", None)
+        for k, v in validated_data.items():
+            setattr(instance, k, v)
+        if pw:
+            instance.set_password(pw)
+        instance.save()
+        return instance
 
 class DashboardSerializer(serializers.Serializer):
     total_leads = serializers.IntegerField()
@@ -18,6 +119,29 @@ class LeadAdminAndStaffSerializer(serializers.ModelSerializer):
         source='assigned_to.username',
         read_only=True
     )
+    organization_slug = serializers.CharField(
+        source='organization.slug',
+        read_only=True,
+    )
+    # Bundle CustomFieldValue rows as a flat {slug: value} dict.
+    custom_fields = serializers.SerializerMethodField()
+
+    def get_custom_fields(self, obj):
+        result = {}
+        for cv in obj.custom_values.select_related("custom_field").all():
+            slug = cv.custom_field.slug
+            ft = cv.custom_field.field_type
+            if ft == "number":
+                result[slug] = float(cv.value_number) if cv.value_number is not None else None
+            elif ft in ("date", "datetime"):
+                result[slug] = cv.value_date.isoformat() if cv.value_date else None
+            elif ft == "checkbox":
+                result[slug] = (cv.value_text or "").lower() in ("true", "1", "yes")
+            elif ft == "multiselect":
+                result[slug] = [v for v in (cv.value_text or "").split("||") if v]
+            else:
+                result[slug] = cv.value_text or ""
+        return result
 
     class Meta:
         model = Leads
@@ -33,13 +157,22 @@ class LeadAdminAndStaffSerializer(serializers.ModelSerializer):
             'brand_name',
             'model_name',
             'watt_capacity',
+            'product_name',
+            'product_category',
             'base_price',
+            'tags',
+            'notes',
             'status',
+            'pipeline',
             'assigned_to',
             'assigned_to_username',
+            'organization',
+            'organization_slug',
+            'custom_fields',
             'created_at',
             'updated_at',
         ]
+        read_only_fields = ['organization']
 
 #auto foreign key set karne ke liye based on username
 
@@ -83,7 +216,6 @@ class LeadAdminAndStaffSerializer(serializers.ModelSerializer):
 class LeadOtherSerializer(serializers.ModelSerializer):
     assigned_to_username = serializers.CharField(source='assigned_to.username', read_only=True)
 
-
     class Meta:
         model = Leads
         fields = [
@@ -98,9 +230,15 @@ class LeadOtherSerializer(serializers.ModelSerializer):
             'brand_name',
             'model_name',
             'watt_capacity',
+            'product_name',
+            'product_category',
+            'tags',
+            'notes',
+            'base_price',
             'status',
+            'pipeline',
             'assigned_to_username',
-            'created_at'
+            'created_at',
         ]
 
 
@@ -245,3 +383,106 @@ class TaskMessageSerializer(serializers.ModelSerializer):
         model = TaskMessage
         fields = "__all__"
         read_only_fields = ["user", "task", "created_at"]
+
+
+# ════════════════════════════════════════════════════════════════
+#  Platform extension serializers (stub-level)
+# ════════════════════════════════════════════════════════════════
+
+class AutomationRuleSerializer(serializers.ModelSerializer):
+    created_by_username = serializers.CharField(source="created_by.username", read_only=True)
+
+    class Meta:
+        model = AutomationRule
+        fields = "__all__"
+        read_only_fields = ["organization", "created_by", "last_run_at", "run_count", "created_at", "updated_at"]
+
+
+class WhatsAppConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WhatsAppConfig
+        fields = "__all__"
+        read_only_fields = ["organization", "created_at", "updated_at"]
+        extra_kwargs = {"access_token": {"write_only": True}}
+
+
+class WhatsAppMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WhatsAppMessage
+        fields = "__all__"
+        read_only_fields = ["organization", "status", "external_id", "sent_at", "created_at"]
+
+
+class PlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Plan
+        fields = "__all__"
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    plan_name = serializers.CharField(source="plan.name", read_only=True)
+    organization_slug = serializers.CharField(source="organization.slug", read_only=True)
+
+    class Meta:
+        model = Subscription
+        fields = "__all__"
+        read_only_fields = ["organization", "razorpay_subscription_id", "created_at", "updated_at"]
+
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    organization_slug = serializers.CharField(source="organization.slug", read_only=True)
+
+    class Meta:
+        model = Invoice
+        fields = "__all__"
+        read_only_fields = ["organization", "created_at"]
+
+
+class CustomFieldSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomField
+        fields = "__all__"
+        read_only_fields = ["organization", "created_at", "updated_at"]
+
+
+class CustomFieldValueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomFieldValue
+        fields = "__all__"
+        read_only_fields = ["created_at", "updated_at"]
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    user_username = serializers.SerializerMethodField()
+    organization_slug = serializers.SerializerMethodField()
+
+    def get_user_username(self, obj):
+        return obj.user.username if obj.user_id else None
+
+    def get_organization_slug(self, obj):
+        return obj.organization.slug if obj.organization_id else None
+
+    class Meta:
+        model = AuditLog
+        fields = [
+            "id", "organization", "organization_slug",
+            "user", "user_username",
+            "action", "model_name", "object_id", "object_repr",
+            "changes", "ip_address", "user_agent", "created_at",
+        ]
+        read_only_fields = fields
+
+
+class TwoFactorStatusSerializer(serializers.ModelSerializer):
+    """Read-only — never expose the secret over the wire."""
+    class Meta:
+        model = TwoFactorSecret
+        fields = ["is_enabled", "enabled_at", "last_used_at", "created_at"]
+        read_only_fields = fields
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = "__all__"
+        read_only_fields = ["user", "organization", "created_at", "read_at"]

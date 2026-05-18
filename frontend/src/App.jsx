@@ -1,37 +1,95 @@
-import { useState } from 'react'
-import {createBrowserRouter, createRoutesFromElements, Route, RouterProvider} from 'react-router-dom'
+import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router-dom'
 import Layout from './Layout'
+import Landing from './pages/Landing'
 import Dashboard from './pages/Dashboard'
 import Leads from './pages/Leads'
 import Customers from './pages/Customers'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
-import {Deal} from './components/index.js'
+import Login from './pages/Login'
+import { Deal } from './components/index.js'
+import { AuthProvider } from './context/AuthContext.jsx'
+import { ThemeProvider } from './context/ThemeContext.jsx'
+import ProtectedRoute from './components/ProtectedRoute.jsx'
+import SuperAdminRoute from './components/SuperAdminRoute.jsx'
+
+// Admin
+import AdminLayout from './layouts/AdminLayout.jsx'
+import AdminOverview from './pages/admin/AdminOverview.jsx'
+import AdminUsers from './pages/admin/AdminUsers.jsx'
+import AdminOrganizations from './pages/admin/AdminOrganizations.jsx'
+import AdminLeads from './pages/admin/AdminLeads.jsx'
+import AdminDeals from './pages/admin/AdminDeals.jsx'
+import AdminCustomers from './pages/admin/AdminCustomers.jsx'
+import AdminReports from './pages/admin/AdminReports.jsx'
+import AdminSystem from './pages/admin/AdminSystem.jsx'
+import AdminAutomation from './pages/admin/AdminAutomation.jsx'
+import AdminWhatsApp from './pages/admin/AdminWhatsApp.jsx'
+import AdminBilling from './pages/admin/AdminBilling.jsx'
+import AdminPipelines from './pages/admin/AdminPipelines.jsx'
+import AdminCustomFields from './pages/admin/AdminCustomFields.jsx'
+import AdminAuditLogs from './pages/admin/AdminAuditLogs.jsx'
+import AdminTwoFactor from './pages/admin/AdminTwoFactor.jsx'
 
 const router = createBrowserRouter(
   createRoutesFromElements(
     <>
-      <Route path='/' element={<Layout />}>
-          <Route path='' element={<Dashboard />} />
-          <Route path='/leads' element={<Leads />} />
-          <Route path='/deals' element={<Deal />} />
-          <Route path='/customers' element={<Customers />} />
-          <Route path='/reports' element={<Reports />} />
+      <Route path='/' element={<Landing />} />
+      <Route path='/login' element={<Login />} />
+
+      {/* Regular user app */}
+      <Route
+        path='/app'
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Dashboard />} />
+        <Route path='leads' element={<Leads />} />
+        <Route path='deals' element={<Deal />} />
+        <Route path='customers' element={<Customers />} />
+        <Route path='reports' element={<Reports />} />
+        <Route path='settings' element={<Settings />} />
       </Route>
 
-      <Route path='/settings' element={<Settings />} />
+      {/* Super admin console */}
+      <Route
+        path='/admin'
+        element={
+          <SuperAdminRoute>
+            <AdminLayout />
+          </SuperAdminRoute>
+        }
+      >
+        <Route index element={<AdminOverview />} />
+        <Route path='organizations' element={<AdminOrganizations />} />
+        <Route path='users' element={<AdminUsers />} />
+        <Route path='leads' element={<AdminLeads />} />
+        <Route path='deals' element={<AdminDeals />} />
+        <Route path='customers' element={<AdminCustomers />} />
+        <Route path='pipelines' element={<AdminPipelines />} />
+        <Route path='custom-fields' element={<AdminCustomFields />} />
+        <Route path='automation' element={<AdminAutomation />} />
+        <Route path='whatsapp' element={<AdminWhatsApp />} />
+        <Route path='billing' element={<AdminBilling />} />
+        <Route path='audit-logs' element={<AdminAuditLogs />} />
+        <Route path='two-factor' element={<AdminTwoFactor />} />
+        <Route path='reports' element={<AdminReports />} />
+        <Route path='system' element={<AdminSystem />} />
+      </Route>
     </>
   )
 )
 
-
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <RouterProvider router={router} />
-    </>
+    <ThemeProvider>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 

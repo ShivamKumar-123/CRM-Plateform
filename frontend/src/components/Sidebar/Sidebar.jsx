@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -9,15 +9,26 @@ import {
   LogOut,
   Zap,
   X,
+  Handshake,
+  Crown,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext.jsx";
 
-const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: UserPlus, label: "Leads", path: "/leads" },
-  { icon: Users, label: "Customers", path: "/customers" },
-  { icon: BarChart3, label: "Reports", path: "/reports" },
-  { icon: Settings, label: "Settings", path: "/settings" },
+const baseNavItems = [
+  { icon: LayoutDashboard, label: "Dashboard", path: "/app" },
+  { icon: UserPlus, label: "Leads", path: "/app/leads" },
+  { icon: Handshake, label: "Deals", path: "/app/deals" },
+  { icon: Users, label: "Customers", path: "/app/customers" },
+  { icon: BarChart3, label: "Reports", path: "/app/reports" },
+  { icon: Settings, label: "Settings", path: "/app/settings" },
 ];
+
+const superAdminItem = {
+  icon: Crown,
+  label: "Super Admin",
+  path: "/admin",
+  superOnly: true,
+};
 
 /* ── Variants ── */
 const sidebarVariant = {
@@ -110,6 +121,18 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
 
 /* ── Sidebar Inner Content ── */
 function SidebarContent({ setSidebarOpen, isMobile }) {
+  const navigate = useNavigate();
+  const { username, logout, isSuperUser, organization } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
+
+  const navItems = isSuperUser
+    ? [...baseNavItems, superAdminItem]
+    : baseNavItems;
+
   return (
     <>
       <div className="absolute top-0 right-0 bottom-0 w-px bg-gradient-to-b from-yellow-400/40 via-sky-400/40 to-yellow-400/40" />
@@ -149,7 +172,7 @@ function SidebarContent({ setSidebarOpen, isMobile }) {
           <motion.div key={label} variants={navItemVariant}>
             <NavLink
               to={path}
-              end={path === "/"}
+              end={path === "/app"}
               onClick={() => isMobile && setSidebarOpen(false)}
               className={({ isActive }) =>
                 `relative flex items-center gap-3 w-full px-4 py-2.5 rounded-xl
@@ -206,10 +229,30 @@ function SidebarContent({ setSidebarOpen, isMobile }) {
         ))}
       </motion.nav>
 
-      {/* Logout */}
-      <div className="px-3 pb-5 mt-auto">
-        <button className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-red-500/8 hover:text-red-400 transition-colors duration-200">
-          <span className="w-8 h-8 rounded-lg bg-white/4 flex items-center justify-center">
+      {/* User + Logout */}
+      <div className="px-3 pb-5 mt-auto space-y-2">
+        {organization && (
+          <div className="px-3 py-2 rounded-xl bg-gradient-to-r from-yellow-400/8 to-sky-400/8 border border-yellow-400/15">
+            <p className="text-[9px] uppercase tracking-widest text-gray-500 font-bold">Organization</p>
+            <p className="text-xs text-yellow-200 truncate font-semibold">{organization.name}</p>
+            <p className="text-[10px] text-gray-500">{organization.industry} · {organization.plan}</p>
+          </div>
+        )}
+        {username && (
+          <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10">
+            <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center text-xs font-bold text-black">
+              {username.charAt(0).toUpperCase()}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-gray-200 truncate">{username}</p>
+            </div>
+          </div>
+        )}
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-red-500/10 hover:text-red-400 transition-colors duration-200"
+        >
+          <span className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
             <LogOut size={16} />
           </span>
           Logout
