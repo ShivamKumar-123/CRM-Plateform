@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
-  UserPlus, Search, Plus, Pencil, Trash2, Check,
+  UserPlus, Search, Plus, Pencil, Trash2, Check, AlertTriangle,
 } from "lucide-react";
 import { api } from "../../lib/api.js";
 import {
@@ -268,7 +268,7 @@ function LeadModal({ lead, users, statusChoices, customFields = [], onClose, onS
       {isEdit && duplicates.length > 0 && (
         <div className="rounded-xl bg-orange-400/10 border border-orange-400/30 p-3 mb-4">
           <p className="text-sm font-bold text-orange-300 mb-2 flex items-center gap-2">
-            ⚠ {duplicates.length} possible duplicate{duplicates.length !== 1 ? "s" : ""} found (same phone or email)
+            <AlertTriangle size={14} /> {duplicates.length} possible duplicate{duplicates.length !== 1 ? "s" : ""} found (same phone or email)
           </p>
           <div className="space-y-1">
             {duplicates.map((d) => (

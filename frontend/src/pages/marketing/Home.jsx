@@ -670,7 +670,9 @@ export default function Home() {
               <div className="md:col-span-2 space-y-6">
                 <div>
                   <p className="text-xs text-gray-500">DASHBOARD</p>
-                  <h3 className="text-2xl font-bold mt-1">Good morning, Rakesh ☀️</h3>
+                  <h3 className="text-2xl font-bold mt-1 flex items-center gap-2">
+                    Good morning, Rakesh <Sun size={20} className="text-yellow-400" />
+                  </h3>
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

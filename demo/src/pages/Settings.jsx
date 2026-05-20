@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { RotateCcw, LogOut, Database, ShieldCheck, Info } from "lucide-react";
+import { RotateCcw, LogOut, Database, ShieldCheck, Info, Check } from "lucide-react";
 import PageHeader, { Field, inputClass } from "../components/PageHeader.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { db } from "../lib/db.js";
@@ -58,7 +58,11 @@ export default function Settings() {
           <button onClick={saveProfile} className="px-4 py-2 rounded-lg text-sm font-semibold text-black bg-gradient-to-r from-yellow-400 to-amber-500">
             Save profile
           </button>
-          {saved && <span className="text-xs text-emerald-400">✓ Saved</span>}
+          {saved && (
+            <span className="text-xs text-emerald-400 inline-flex items-center gap-1">
+              <Check size={12} /> Saved
+            </span>
+          )}
         </div>
       </motion.section>
 

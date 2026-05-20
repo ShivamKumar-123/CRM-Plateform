@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Briefcase, UserCircle, TrendingUp, Wallet, Trophy } from "lucide-react";
+import { Users, Briefcase, UserCircle, TrendingUp, Wallet, Trophy, Hand } from "lucide-react";
 import { api } from "../lib/api.js";
 import { inr } from "../lib/format.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -64,7 +64,9 @@ export default function Dashboard() {
     <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Welcome back, {user?.name?.split(" ")[0]} 👋</h1>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            Welcome back, {user?.name?.split(" ")[0]} <Hand size={24} className="text-yellow-400" />
+          </h1>
           <p className="text-gray-400 mt-1">
             Live <span className="text-yellow-300">{industry.label}</span> pipeline — all data lives in your browser.
           </p>

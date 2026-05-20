@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Users, UserPlus, DollarSign, TrendingUp } from "lucide-react";
+import { Users, UserPlus, DollarSign, TrendingUp, Hand } from "lucide-react";
 import { api } from "../lib/api.js";
 
 const fadeUp = {
@@ -69,8 +69,8 @@ function Dashboard() {
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
           <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard Overview</h1>
-          <p className="text-gray-400 text-sm mt-1">
-            Welcome back 👋 Here's what's happening today.
+          <p className="text-gray-400 text-sm mt-1 flex items-center gap-1.5">
+            Welcome back <Hand size={14} className="text-yellow-400 inline" /> Here's what's happening today.
           </p>
         </motion.div>
 

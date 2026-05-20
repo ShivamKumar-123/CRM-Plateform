@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { MessageSquare, IndianRupee, FileText, Briefcase, ArrowRight } from "lucide-react";
+import { MessageSquare, IndianRupee, FileText, Briefcase, ArrowRight, Hand } from "lucide-react";
 import { api } from "../../lib/api.js";
 import { portalAuth } from "./PortalLayout.jsx";
 
@@ -22,7 +22,9 @@ export default function PortalDashboard() {
 
   return (
     <div className="p-6 md:p-10 max-w-5xl mx-auto">
-      <h1 className="text-3xl font-bold mb-2">Welcome back 👋</h1>
+      <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
+        Welcome back <Hand size={24} className="text-yellow-400" />
+      </h1>
       <p className="text-sm text-gray-400 mb-8">Here's a quick summary of your activity.</p>
 
       {err && <div className="text-sm text-red-300 mb-4">{err}</div>}
