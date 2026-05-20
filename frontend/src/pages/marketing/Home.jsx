@@ -27,14 +27,16 @@ const stats = [
 ];
 
 const topFeatures = [
-  { icon: Users,       title: "Lead Pipeline",          body: "Capture leads from any source — website, WhatsApp, email, events. All in one configurable pipeline.", tint: "from-yellow-400 to-amber-500" },
-  { icon: GitBranch,   title: "Drag-Drop Pipelines",    body: "Configure stages per module. Real @dnd-kit drag handles. Won/lost flags + per-stage colors.", tint: "from-sky-400 to-blue-500" },
-  { icon: Layers,      title: "Custom Fields",          body: "11 field types, per module, per organization. Zero code. From BHK to watt capacity to patient ID.", tint: "from-violet-400 to-purple-500" },
-  { icon: Target,      title: "Lead Scoring",           body: "Auto-classify HOT / WARM / COLD based on activity. 13 default rules. Full score audit trail per lead.", tint: "from-pink-400 to-rose-500" },
+  { icon: Users,       title: "Lead Pipeline",          body: "Capture from website, WhatsApp, public forms, email, events. Auto-scored. Auto-distributed to the right rep.", tint: "from-yellow-400 to-amber-500" },
+  { icon: Sparkles,    title: "AI CRM Assistant",       body: "Lead summaries · follow-up drafts · deal-risk scoring · email drafting · meeting summaries — OpenAI + Anthropic ready.", tint: "from-fuchsia-400 to-pink-500" },
+  { icon: Workflow,    title: "Automation Engine",      body: "Visual trigger → action chains. 7 action types. Celery worker scales to millions of events. Inline fallback for dev.", tint: "from-violet-400 to-purple-500" },
+  { icon: Target,      title: "Lead Scoring",           body: "Auto-classify HOT / WARM / COLD on 13 activity events. Full score history per lead. Drives auto-priority.", tint: "from-pink-400 to-rose-500" },
   { icon: Trophy,      title: "Sales Leaderboards",     body: "Monthly leaderboards + per-user targets + auto-computed commissions. Driven by actual won deals.", tint: "from-emerald-400 to-green-500" },
-  { icon: Bell,        title: "Live Notifications",     body: "Bell with unread badge polls every 60s. Auto-emit on lead-assign, deal-won, payment, task-due.", tint: "from-cyan-400 to-blue-500" },
+  { icon: GitBranch,   title: "Drag-Drop Pipelines",    body: "Configure stages per module. Real @dnd-kit drag handles. 7 industry templates one-click seed.", tint: "from-sky-400 to-blue-500" },
+  { icon: Layers,      title: "Custom Fields",          body: "11 field types, per module, per organization. Zero code. From BHK to watt capacity to patient ID.", tint: "from-amber-400 to-orange-500" },
+  { icon: Bell,        title: "Notifications + Push",   body: "Live bell · Web Push · Expo mobile push. Auto-emit on lead-assign, deal-won, payment, ticket SLA breach.", tint: "from-cyan-400 to-blue-500" },
   { icon: Smartphone,  title: "Native Mobile App",      body: "iOS + Android via Expo. Field teams update leads from the customer's location — offline-ready.", tint: "from-orange-400 to-red-500" },
-  { icon: ShieldCheck, title: "Enterprise Security",    body: "JWT auth · TOTP 2FA · rotating refresh · multi-tenant isolation · audit logs on every change.", tint: "from-indigo-400 to-violet-500" },
+  { icon: ShieldCheck, title: "Enterprise Security",    body: "JWT auth · TOTP 2FA · session/device revoke · multi-tenant isolation · audit logs · approval workflows.", tint: "from-indigo-400 to-violet-500" },
 ];
 
 const steps = [
@@ -56,27 +58,35 @@ const industriesSpotlight = [
 const stopStart = [
   {
     stop: "Lost lead in 4 WhatsApp groups",
-    start: "Every lead in one pipeline with source tracking",
+    start: "Every lead in one pipeline + auto-distributed to the right rep",
   },
   {
     stop: "Excel sheets that nobody updates",
-    start: "Live dashboard with revenue + win rate + leaderboard",
+    start: "Live dashboards + revenue forecast + cohort + churn analytics",
   },
   {
     stop: "Sales rep quits, takes deals with them",
-    start: "Org-scoped data — never lose customer history",
+    start: "Org-scoped data + session revoke + audit log on every change",
   },
   {
     stop: "Manual lead-priority guesswork",
-    start: "Auto HOT/WARM/COLD scoring on 13 activity events",
+    start: "Auto HOT/WARM/COLD scoring + AI follow-up drafts on demand",
   },
   {
     stop: "Forgot to follow up — deal goes cold",
-    start: "Notifications + tasks + call logs with next-action dates",
+    start: "Automation rules + notifications + Web Push + Expo mobile push",
   },
   {
-    stop: "Compliance audit panic",
-    start: "Audit log on every CREATE/UPDATE/DELETE with diffs",
+    stop: "Customer support buried in inboxes",
+    start: "Built-in helpdesk · SLA timers · customer portal · knowledge base",
+  },
+  {
+    stop: "Manual contracts + chasing signatures",
+    start: "E-signature with OTP verification + audit-stamped PDF in 2 minutes",
+  },
+  {
+    stop: "Compliance + backup panic",
+    start: "Field-level audit log + Fernet-encrypted scheduled backups",
   },
 ];
 
@@ -106,13 +116,17 @@ const pricingTeaser = [
 
 const topFaqs = [
   { q: "Which industries does CRM Suite support?",
-    a: "12+ industries with one-click templates — solar, real estate, healthcare, education, insurance, logistics, manufacturing, agencies, e-commerce, finance, B2B sales, services. Build your own preset in 5 minutes." },
-  { q: "Can I import my existing leads?",
-    a: "Yes — CSV / Excel import with column mapping. Onboarding team helps migrate from Excel, Zoho, HubSpot, or any other CRM in under 48 hours." },
+    a: "12+ industries with one-click templates — solar, real estate, healthcare, education, insurance, logistics, manufacturing, agencies, e-commerce, finance, B2B sales, services. Each preset seeds pipelines + custom fields + scoring rules in 5 seconds." },
+  { q: "Do I really get AI assistance built in?",
+    a: "Yes. Lead summaries, follow-up drafts, deal-risk scoring (0-100 confidence with reasoning), email drafting, meeting summaries — all via the AI assistant page. Plug in your OpenAI or Anthropic API key and it works immediately; without a key it runs in deterministic stub mode for the UI to flow." },
+  { q: "How do I bring my existing leads + customers in?",
+    a: "Built-in CSV + Excel import engine with column mapping, dry-run preview, validation log, and one-click rollback. Onboarding team helps migrate from Excel, Zoho, HubSpot, Salesforce in under 48 hours." },
+  { q: "Can my customers self-serve?",
+    a: "Yes — the Customer Portal lets you mint magic-link tokens; customers see their own tickets, invoices, documents, and deals without a password. Pair with the built-in Helpdesk + Knowledge Base for a complete support stack." },
+  { q: "Is real WhatsApp + Razorpay integrated?",
+    a: "Yes. Real Meta WhatsApp Cloud API (text · template · media · webhook · delivery status · incoming replies) and real Razorpay checkout (signature verify · webhook · GST invoice PDF · subscription auto-renewals). Add your credentials and they go live." },
   { q: "Is the data hosted in India?",
-    a: "Yes. All data lives on servers in Mumbai (AWS ap-south-1), fully compliant with India's DPDP Act. You own your data and can export anytime." },
-  { q: "How does pricing work?",
-    a: "Free plan covers solos + evaluation. Pro at ₹2,499/mo for growing teams. Enterprise for multi-branch organizations with custom SLA. 14-day money-back guarantee on all paid plans." },
+    a: "Yes. All data lives on servers in Mumbai (AWS ap-south-1), fully compliant with India's DPDP Act. You own your data, can backup any time (Fernet-encrypted), and export to CSV / API at will." },
 ];
 
 /* ───────────────── HERO SLIDES ───────────────── */

@@ -1824,3 +1824,1828 @@ class IndustryTemplateApply(APIView):
             "message": f"Template '{template_slug}' applied to {org.slug}",
             "summary": summary,
         })
+
+
+# ═══════════════════════════════════════════════════════════════════
+# PHASE 6 — Enterprise Operations Pack
+# ═══════════════════════════════════════════════════════════════════
+#
+# Imports for this section live at the bottom to keep diffs against
+# the original views.py reviewable.
+# ═══════════════════════════════════════════════════════════════════
+
+import secrets
+
+from django.http import HttpResponse
+from django.utils import timezone
+from rest_framework import status as http_status
+from rest_framework.parsers import MultiPartParser, FormParser
+
+from .models import (
+    ImportJob, DistributionRule, AssignmentLog, UserSession,
+    ApprovalRequest, ApprovalStep, APIKey,
+)
+from .serializers import (
+    ImportJobSerializer, DistributionRuleSerializer, AssignmentLogSerializer,
+    UserSessionSerializer,
+    ApprovalRequestSerializer, ApprovalStepSerializer,
+    APIKeySerializer,
+)
+from .filters_dsl import ast_to_q, FilterError, FIELD_WHITELIST, supported_operators_for_field
+from .services import imports as imports_service
+
+
+# ─── Module → Model lookup for the cross-cutting endpoints ──────
+
+_MODULE_MODEL = {
+    "lead": Leads,
+    "deal": Deal,
+    "customer": Leads,  # customers ride on Leads in this codebase
+    "task": Task,
+}
+
+_MODULE_SERIALIZER = {
+    "lead": LeadAdminAndStaffSerializer,
+    "deal": DealAdminSerializer,
+    "customer": LeadAdminAndStaffSerializer,
+    "task": TaskSerializer,
+}
+
+
+# ─── 6.1 Advanced Filter Builder ────────────────────────────────
+
+
+class FilterMeta(APIView):
+    """Return the field whitelist + operator suggestions for the UI."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        module = request.query_params.get("module", "lead")
+        fields = sorted(FIELD_WHITELIST.get(module, []))
+        return Response({
+            "module": module,
+            "fields": fields,
+            "operators_by_field": {f: supported_operators_for_field(f, module) for f in fields},
+        })
+
+
+class FilterQuery(APIView):
+    """Run a saved or ad-hoc filter AST against a module's data.
+
+    POST body:
+        {"module": "lead", "filter": <AST>, "limit": 200}
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        module = request.data.get("module", "lead")
+        ast = request.data.get("filter") or {}
+        limit = int(request.data.get("limit") or 200)
+
+        Model = _MODULE_MODEL.get(module)
+        Serializer = _MODULE_SERIALIZER.get(module)
+        if Model is None:
+            return Response({"error": f"unknown module '{module}'"}, status=400)
+
+        try:
+            q = ast_to_q(ast, module=module)
+        except FilterError as exc:
+            return Response({"error": str(exc)}, status=400)
+
+        qs = scope_qs(Model.objects.select_related("organization"), request).filter(q)
+        results = qs[:limit]
+        return Response({
+            "count": qs.count(),
+            "limit": limit,
+            "results": Serializer(results, many=True).data,
+        })
+
+
+# ─── 6.2 Import / Export Engine ─────────────────────────────────
+
+
+class ImportJobList(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get(self, request):
+        qs = scope_qs(ImportJob.objects.all(), request)
+        return Response(ImportJobSerializer(qs[:100], many=True).data)
+
+    def post(self, request):
+        """Upload a file. Triggers preview unless `commit=true`."""
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+
+        module = request.data.get("module")
+        if module not in imports_service.IMPORTABLE_FIELDS:
+            return Response({"error": f"unsupported module '{module}'"}, status=400)
+
+        file_obj = request.FILES.get("file")
+        if not file_obj:
+            return Response({"error": "file is required"}, status=400)
+
+        mapping_raw = request.data.get("mapping") or "{}"
+        options_raw = request.data.get("options") or "{}"
+        import json
+        try:
+            mapping = json.loads(mapping_raw) if isinstance(mapping_raw, str) else mapping_raw
+            options = json.loads(options_raw) if isinstance(options_raw, str) else options_raw
+        except json.JSONDecodeError:
+            return Response({"error": "mapping/options must be JSON"}, status=400)
+
+        commit = str(request.data.get("commit", "")).lower() in ("1", "true", "yes")
+
+        job = ImportJob.objects.create(
+            organization=org,
+            user=request.user,
+            module=module,
+            file=file_obj,
+            original_filename=file_obj.name,
+            mapping=mapping,
+            options=options,
+            status="PREVIEW",
+        )
+
+        if commit:
+            imports_service.run(job)
+        else:
+            # Re-read the saved file for preview.
+            try:
+                with job.file.open("rb") as fh:
+                    preview = imports_service.preview(fh, job.original_filename, module, mapping)
+            except Exception as exc:  # noqa: BLE001
+                return Response({"error": str(exc)}, status=400)
+            job.total_rows = preview["total_rows"]
+            job.save(update_fields=["total_rows"])
+            return Response({
+                "job": ImportJobSerializer(job).data,
+                "preview": preview,
+            })
+
+        return Response(ImportJobSerializer(job).data, status=http_status.HTTP_201_CREATED)
+
+
+class ImportJobDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, job_id):
+        qs = scope_qs(ImportJob.objects.all(), request)
+        job = get_object_or_404(qs, id=job_id)
+        return Response(ImportJobSerializer(job).data)
+
+    def post(self, request, job_id):
+        """`?action=commit` runs the import; `?action=rollback` deletes created rows."""
+        qs = scope_qs(ImportJob.objects.all(), request)
+        job = get_object_or_404(qs, id=job_id)
+        action = request.query_params.get("action") or request.data.get("action") or "commit"
+
+        if action == "commit":
+            imports_service.run(job)
+        elif action == "rollback":
+            deleted = imports_service.rollback(job)
+            return Response({"deleted": deleted, "job": ImportJobSerializer(job).data})
+        else:
+            return Response({"error": "action must be commit or rollback"}, status=400)
+
+        return Response(ImportJobSerializer(job).data)
+
+    def delete(self, request, job_id):
+        qs = scope_qs(ImportJob.objects.all(), request)
+        job = get_object_or_404(qs, id=job_id)
+        job.delete()
+        return Response(status=204)
+
+
+class ExportData(APIView):
+    """Download a module's data as CSV (org-scoped)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        module = request.query_params.get("module", "lead")
+        Model = _MODULE_MODEL.get(module)
+        if Model is None:
+            return Response({"error": f"unknown module '{module}'"}, status=400)
+
+        qs = scope_qs(Model.objects.all(), request)
+
+        # Optional filter via base64-encoded JSON in `?filter=...`.
+        filter_raw = request.query_params.get("filter")
+        if filter_raw:
+            import json
+            try:
+                ast = json.loads(filter_raw)
+                qs = qs.filter(ast_to_q(ast, module=module))
+            except (json.JSONDecodeError, FilterError) as exc:
+                return Response({"error": f"invalid filter: {exc}"}, status=400)
+
+        data = imports_service.export_csv(qs, module)
+        response = HttpResponse(data, content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="{module}s_export.csv"'
+        return response
+
+
+# ─── 6.3 Lead Distribution Engine ───────────────────────────────
+
+
+class DistributionRuleList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(DistributionRule.objects.prefetch_related("eligible_users"), request)
+        return Response(DistributionRuleSerializer(qs, many=True).data)
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        serializer = DistributionRuleSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(organization=org)
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+
+class DistributionRuleDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, request, rule_id):
+        qs = scope_qs(DistributionRule.objects.all(), request)
+        return get_object_or_404(qs, id=rule_id)
+
+    def get(self, request, rule_id):
+        return Response(DistributionRuleSerializer(self.get_object(request, rule_id)).data)
+
+    def patch(self, request, rule_id):
+        rule = self.get_object(request, rule_id)
+        serializer = DistributionRuleSerializer(rule, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
+    def delete(self, request, rule_id):
+        rule = self.get_object(request, rule_id)
+        rule.delete()
+        return Response(status=204)
+
+
+class AssignmentLogList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(
+            AssignmentLog.objects.select_related("lead", "rule", "assigned_to"),
+            request,
+        )
+        return Response(AssignmentLogSerializer(qs[:200], many=True).data)
+
+
+# ─── 6.4 Session & Device Management ────────────────────────────
+
+
+def _current_jti(request) -> str | None:
+    from .middleware import SessionTrackingMiddleware
+    auth = request.META.get("HTTP_AUTHORIZATION", "")
+    if not auth.startswith("Bearer "):
+        return None
+    return SessionTrackingMiddleware._extract_jti(auth.split(" ", 1)[1])
+
+
+class MySessions(APIView):
+    """Current user's own sessions. Used by Profile → Devices."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = UserSession.objects.filter(user=request.user, is_active=True).order_by("-last_seen_at")
+        context = {"current_jti": _current_jti(request)}
+        return Response(UserSessionSerializer(qs, many=True, context=context).data)
+
+    def delete(self, request):
+        """Sign out everywhere except the current device."""
+        current = _current_jti(request)
+        qs = UserSession.objects.filter(user=request.user, is_active=True)
+        if current:
+            qs = qs.exclude(jti=current)
+        count = qs.count()
+        qs.update(is_active=False, revoked_at=timezone.now())
+        # Also blacklist tokens if SimpleJWT blacklist app is wired (no-op otherwise).
+        _try_blacklist(qs.values_list("jti", flat=True))
+        return Response({"revoked": count})
+
+
+class SessionRevoke(APIView):
+    """Revoke one session by id (own session or super-admin scope)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, session_id):
+        qs = UserSession.objects.all()
+        if not request.user.is_superuser:
+            qs = qs.filter(user=request.user)
+        session = get_object_or_404(qs, id=session_id)
+        session.is_active = False
+        session.revoked_at = timezone.now()
+        session.save(update_fields=["is_active", "revoked_at"])
+        _try_blacklist([session.jti])
+        return Response({"revoked": session.id})
+
+
+class AdminSessionList(APIView):
+    """Super-admin view — all sessions, optionally filtered to ?user=<id>."""
+
+    permission_classes = [IsSuperUser]
+
+    def get(self, request):
+        qs = UserSession.objects.select_related("user").order_by("-last_seen_at")
+        user_id = request.query_params.get("user")
+        if user_id:
+            qs = qs.filter(user_id=user_id)
+        active = request.query_params.get("active")
+        if active == "true":
+            qs = qs.filter(is_active=True)
+        return Response(UserSessionSerializer(qs[:500], many=True).data)
+
+
+def _try_blacklist(jtis):
+    """Best-effort token blacklist — silent no-op if SimpleJWT blacklist app isn't installed."""
+    try:
+        from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+        for jti in jtis:
+            tok = OutstandingToken.objects.filter(jti=jti).first()
+            if tok:
+                BlacklistedToken.objects.get_or_create(token=tok)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+# ─── 6.5 Approval Workflows ─────────────────────────────────────
+
+
+class ApprovalRequestList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(
+            ApprovalRequest.objects.select_related("requester").prefetch_related("steps"),
+            request,
+        )
+        # Filter: ?mine=requested or ?mine=pending_my_approval
+        scope = request.query_params.get("mine")
+        if scope == "requested":
+            qs = qs.filter(requester=request.user)
+        elif scope == "pending_my_approval":
+            # Rough match — the chain is a JSON list of user IDs; we filter in Python
+            uid = request.user.id
+            ids = [r.id for r in qs if r.status == "PENDING"
+                   and r.approver_chain
+                   and r.current_step < len(r.approver_chain)
+                   and r.approver_chain[r.current_step] == uid]
+            qs = qs.filter(id__in=ids)
+        return Response(ApprovalRequestSerializer(qs, many=True).data)
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        chain = request.data.get("approver_chain") or []
+        if not isinstance(chain, list) or not chain:
+            return Response({"error": "approver_chain must be a non-empty list of user ids"}, status=400)
+        serializer = ApprovalRequestSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(organization=org, requester=request.user, status="PENDING", current_step=0)
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+
+class ApprovalRequestDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, request, req_id):
+        qs = scope_qs(ApprovalRequest.objects.all(), request)
+        return get_object_or_404(qs, id=req_id)
+
+    def get(self, request, req_id):
+        return Response(ApprovalRequestSerializer(self._get(request, req_id)).data)
+
+    def post(self, request, req_id):
+        """Approve / reject / comment as the current approver."""
+        req = self._get(request, req_id)
+        action = (request.data.get("action") or "").upper()
+        comment = request.data.get("comment", "")
+
+        if action not in ("APPROVED", "REJECTED", "COMMENT"):
+            return Response({"error": "action must be APPROVED, REJECTED, or COMMENT"}, status=400)
+
+        chain = req.approver_chain or []
+        if req.status != "PENDING":
+            return Response({"error": f"request already {req.status.lower()}"}, status=400)
+        if req.current_step >= len(chain):
+            return Response({"error": "no pending approver"}, status=400)
+
+        expected_uid = chain[req.current_step]
+        if action != "COMMENT" and expected_uid != request.user.id and not request.user.is_superuser:
+            return Response({"error": "you are not the current approver"}, status=403)
+
+        ApprovalStep.objects.create(
+            request=req,
+            approver=request.user,
+            step_index=req.current_step,
+            action=action,
+            comment=comment,
+        )
+
+        if action == "REJECTED":
+            req.status = "REJECTED"
+            req.decided_at = timezone.now()
+            req.save(update_fields=["status", "decided_at"])
+        elif action == "APPROVED":
+            req.current_step += 1
+            if req.current_step >= len(chain):
+                req.status = "APPROVED"
+                req.decided_at = timezone.now()
+                req.save(update_fields=["status", "current_step", "decided_at"])
+            else:
+                req.save(update_fields=["current_step"])
+        # COMMENT just adds a step row, no status change
+
+        return Response(ApprovalRequestSerializer(req).data)
+
+    def delete(self, request, req_id):
+        req = self._get(request, req_id)
+        if req.requester_id != request.user.id and not request.user.is_superuser:
+            return Response({"error": "only the requester or super-admin can cancel"}, status=403)
+        if req.status != "PENDING":
+            return Response({"error": "only pending requests can be cancelled"}, status=400)
+        req.status = "CANCELLED"
+        req.decided_at = timezone.now()
+        req.save(update_fields=["status", "decided_at"])
+        return Response(ApprovalRequestSerializer(req).data)
+
+
+# ─── 6.6 Public API — API Keys ──────────────────────────────────
+
+
+class APIKeyList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(APIKey.objects.select_related("created_by"), request)
+        return Response(APIKeySerializer(qs, many=True).data)
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        key_value = f"crm_{secrets.token_urlsafe(32)}"
+
+        serializer = APIKeySerializer(data=request.data)
+        if serializer.is_valid():
+            obj = serializer.save(organization=org, created_by=request.user, key=key_value)
+            data = APIKeySerializer(obj).data
+            # Return the FULL key on creation — only time it's visible.
+            data["key_plaintext"] = key_value
+            return Response(data, status=201)
+        return Response(serializer.errors, status=400)
+
+
+class APIKeyDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, request, key_id):
+        qs = scope_qs(APIKey.objects.all(), request)
+        return get_object_or_404(qs, id=key_id)
+
+    def patch(self, request, key_id):
+        obj = self._get(request, key_id)
+        # Only safe fields are user-editable.
+        ALLOWED = {"name", "can_read", "can_write", "allowed_modules", "is_active", "expires_at"}
+        for k in ALLOWED & set(request.data.keys()):
+            setattr(obj, k, request.data[k])
+        obj.save()
+        return Response(APIKeySerializer(obj).data)
+
+    def delete(self, request, key_id):
+        obj = self._get(request, key_id)
+        obj.is_active = False
+        obj.revoked_at = timezone.now()
+        obj.save(update_fields=["is_active", "revoked_at"])
+        return Response({"revoked": obj.id})
+
+
+# ═══════════════════════════════════════════════════════════════════
+# PHASE 7 — Enterprise Integrations Pack
+# ═══════════════════════════════════════════════════════════════════
+
+from rest_framework.permissions import AllowAny
+
+from .models import (
+    AutomationRun, Department, SLAPolicy, Ticket, TicketMessage,
+    CannedReply, PortalToken,
+)
+from .serializers import (
+    AutomationRunSerializer,
+    DepartmentSerializer, SLAPolicySerializer,
+    TicketSerializer, TicketDetailSerializer, TicketMessageSerializer,
+    CannedReplySerializer, PortalTokenSerializer,
+)
+from .services import (
+    automation_engine as _automation_svc,
+    whatsapp_client as _wa_svc,
+    razorpay_client as _rzp_svc,
+    helpdesk as _helpdesk_svc,
+    portal as _portal_svc,
+)
+
+
+# ─── 7.1 Automation run history ────────────────────────────────
+
+
+class AutomationRunList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(
+            AutomationRun.objects.select_related("rule"),
+            request,
+        ).order_by("-started_at")
+        rule_id = request.query_params.get("rule")
+        if rule_id:
+            qs = qs.filter(rule_id=rule_id)
+        return Response(AutomationRunSerializer(qs[:200], many=True).data)
+
+
+class AutomationRuleTest(APIView):
+    """Fire an automation rule manually with a synthetic payload (test button)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, rule_id):
+        qs = scope_qs(AutomationRule.objects.all(), request)
+        rule = get_object_or_404(qs, id=rule_id)
+        payload = request.data.get("payload") or {"event": rule.trigger_event, "test": True}
+        run_id = _automation_svc.execute_inline(rule, rule.trigger_event, payload, instance=None)
+        return Response({"run_id": run_id})
+
+
+# ─── 7.2 WhatsApp send + webhook ───────────────────────────────
+
+
+class WhatsAppSend(APIView):
+    """Send a one-off message — text, template, or media."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        to = request.data.get("to")
+        if not to:
+            return Response({"error": "to is required"}, status=400)
+        kind = request.data.get("kind", "text")
+        if kind == "text":
+            msg = _wa_svc.send_text(org, to, request.data.get("body", ""))
+        elif kind == "template":
+            msg = _wa_svc.send_template(
+                org, to,
+                request.data.get("template", ""),
+                request.data.get("variables", []),
+            )
+        elif kind == "media":
+            msg = _wa_svc.send_media(
+                org, to,
+                request.data.get("media_url", ""),
+                request.data.get("media_type", "image"),
+                request.data.get("caption", ""),
+            )
+        else:
+            return Response({"error": "kind must be text|template|media"}, status=400)
+        return Response({
+            "id": msg.id, "status": msg.status,
+            "external_id": msg.external_id,
+            "error_message": msg.error_message,
+        })
+
+
+class WhatsAppBulkSend(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        recipients = request.data.get("recipients") or []
+        body = request.data.get("body", "")
+        if not recipients or not body:
+            return Response({"error": "recipients[] and body required"}, status=400)
+        msgs = _wa_svc.bulk_send(org, recipients, body)
+        return Response({"queued": len(msgs)})
+
+
+class WhatsAppWebhook(APIView):
+    """Meta posts here. GET = verification challenge, POST = events."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        # Meta's hub.challenge verification
+        verify_token = request.query_params.get("hub.verify_token", "")
+        challenge = request.query_params.get("hub.challenge", "")
+        from django.conf import settings
+        expected = getattr(settings, "WHATSAPP_WEBHOOK_VERIFY_TOKEN", "")
+        if expected and verify_token == expected:
+            return Response(int(challenge) if challenge.isdigit() else challenge)
+        return Response({"error": "verification failed"}, status=403)
+
+    def post(self, request):
+        processed = _wa_svc.handle_webhook(request.data or {})
+        return Response({"ok": True, "processed": processed})
+
+
+# ─── 7.3 Razorpay checkout + webhook + invoice download ─────────
+
+
+class BillingCheckoutOrder(APIView):
+    """Create a Razorpay order for a plan. Returns the order id + amount
+    the frontend feeds into Razorpay Checkout.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        plan_slug = request.data.get("plan")
+        plan = Plan.objects.filter(slug=plan_slug, is_active=True).first()
+        if not plan:
+            return Response({"error": "unknown plan"}, status=400)
+        amount_paise = int((plan.price or 0) * 100)
+        try:
+            data = _rzp_svc.create_order(amount_paise, plan, org, request.user)
+            return Response(data)
+        except Exception as exc:  # noqa: BLE001
+            return Response({"error": str(exc)}, status=400)
+
+
+class BillingVerify(APIView):
+    """Razorpay Checkout callback — verifies the payment signature and
+    marks the matching Invoice paid.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        order_id = request.data.get("razorpay_order_id", "")
+        payment_id = request.data.get("razorpay_payment_id", "")
+        signature = request.data.get("razorpay_signature", "")
+        if not (order_id and payment_id and signature):
+            return Response({"error": "all three fields required"}, status=400)
+        if not _rzp_svc.verify_payment_signature(order_id, payment_id, signature):
+            return Response({"error": "invalid signature"}, status=400)
+        invoice = Invoice.objects.filter(external_id=order_id).first()
+        if invoice:
+            invoice.status = "PAID"
+            invoice.razorpay_payment_id = payment_id
+            invoice.paid_at = timezone.now()
+            invoice.save()
+            sub = Subscription.objects.filter(organization=invoice.organization, plan=invoice.plan).first()
+            if sub:
+                sub.status = "ACTIVE"
+                sub.save(update_fields=["status"])
+        return Response({"ok": True, "invoice": invoice.id if invoice else None})
+
+
+class BillingWebhook(APIView):
+    """Razorpay-hosted webhook. Verifies signature header then dispatches."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        sig = request.META.get("HTTP_X_RAZORPAY_SIGNATURE", "")
+        raw = request.body or b""
+        if not _rzp_svc.verify_webhook_signature(raw, sig):
+            return Response({"error": "bad signature"}, status=400)
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except Exception:  # noqa: BLE001
+            return Response({"error": "bad json"}, status=400)
+        result = _rzp_svc.handle_webhook(payload)
+        return Response(result)
+
+
+class InvoiceDownload(APIView):
+    """Download an Invoice as a GST PDF."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, invoice_id):
+        qs = scope_qs(Invoice.objects.select_related("plan", "organization"), request)
+        invoice = get_object_or_404(qs, id=invoice_id)
+        pdf = _rzp_svc.generate_invoice_pdf(invoice)
+        if not pdf:
+            return Response({"error": "reportlab not installed; cannot render PDF"}, status=501)
+        response = HttpResponse(pdf, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="invoice_{invoice.id}.pdf"'
+        return response
+
+
+# ─── 7.4 Helpdesk — departments, SLAs, tickets, canned replies ─
+
+
+class DepartmentList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(Department.objects.prefetch_related("members"), request)
+        return Response(DepartmentSerializer(qs, many=True).data)
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        serializer = DepartmentSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(organization=org)
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+
+class DepartmentDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, request, dept_id):
+        qs = scope_qs(Department.objects.all(), request)
+        return get_object_or_404(qs, id=dept_id)
+
+    def patch(self, request, dept_id):
+        dept = self._get(request, dept_id)
+        ser = DepartmentSerializer(dept, data=request.data, partial=True)
+        if ser.is_valid():
+            ser.save()
+            return Response(ser.data)
+        return Response(ser.errors, status=400)
+
+    def delete(self, request, dept_id):
+        self._get(request, dept_id).delete()
+        return Response(status=204)
+
+
+class SLAPolicyList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(SLAPolicy.objects.select_related("department"), request)
+        return Response(SLAPolicySerializer(qs, many=True).data)
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        ser = SLAPolicySerializer(data=request.data)
+        if ser.is_valid():
+            ser.save(organization=org)
+            return Response(ser.data, status=201)
+        return Response(ser.errors, status=400)
+
+
+class SLAPolicyDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, request, pid):
+        qs = scope_qs(SLAPolicy.objects.all(), request)
+        return get_object_or_404(qs, id=pid)
+
+    def patch(self, request, pid):
+        pol = self._get(request, pid)
+        ser = SLAPolicySerializer(pol, data=request.data, partial=True)
+        if ser.is_valid():
+            ser.save()
+            return Response(ser.data)
+        return Response(ser.errors, status=400)
+
+    def delete(self, request, pid):
+        self._get(request, pid).delete()
+        return Response(status=204)
+
+
+class TicketList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(
+            Ticket.objects.select_related("assigned_to", "department"),
+            request,
+        )
+        status_f = request.query_params.get("status")
+        if status_f:
+            qs = qs.filter(status=status_f)
+        return Response({
+            "count": qs.count(),
+            "results": TicketSerializer(qs[:200], many=True).data,
+        })
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        ser = TicketSerializer(data=request.data)
+        if ser.is_valid():
+            ser.save(organization=org)
+            return Response(ser.data, status=201)
+        return Response(ser.errors, status=400)
+
+
+class TicketDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, request, ticket_id):
+        qs = scope_qs(
+            Ticket.objects.select_related("assigned_to", "department")
+                          .prefetch_related("messages"),
+            request,
+        )
+        return get_object_or_404(qs, id=ticket_id)
+
+    def get(self, request, ticket_id):
+        ticket = self._get(request, ticket_id)
+        return Response(TicketDetailSerializer(ticket).data)
+
+    def patch(self, request, ticket_id):
+        ticket = self._get(request, ticket_id)
+        # status transition stamps resolved_at
+        if request.data.get("status") in ("RESOLVED", "CLOSED") and not ticket.resolved_at:
+            ticket.resolved_at = timezone.now()
+        ser = TicketSerializer(ticket, data=request.data, partial=True)
+        if ser.is_valid():
+            ser.save()
+            return Response(ser.data)
+        return Response(ser.errors, status=400)
+
+    def delete(self, request, ticket_id):
+        self._get(request, ticket_id).delete()
+        return Response(status=204)
+
+
+class TicketReply(APIView):
+    """Append a message to a ticket."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, ticket_id):
+        qs = scope_qs(Ticket.objects.all(), request)
+        ticket = get_object_or_404(qs, id=ticket_id)
+
+        body = request.data.get("body", "").strip()
+        if not body:
+            return Response({"error": "body required"}, status=400)
+
+        is_internal = bool(request.data.get("is_internal", False))
+        msg = TicketMessage.objects.create(
+            ticket=ticket,
+            author=request.user,
+            author_type="AGENT",
+            author_name=request.user.username,
+            body=body,
+            is_internal=is_internal,
+        )
+
+        # Stamp first-response if needed
+        _helpdesk_svc.mark_first_response(ticket)
+        if ticket.status == "OPEN":
+            ticket.status = "IN_PROGRESS"
+        ticket.save()
+        return Response(TicketMessageSerializer(msg).data, status=201)
+
+
+class CannedReplyList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(CannedReply.objects.select_related("department"), request)
+        return Response(CannedReplySerializer(qs, many=True).data)
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        ser = CannedReplySerializer(data=request.data)
+        if ser.is_valid():
+            ser.save(organization=org, created_by=request.user)
+            return Response(ser.data, status=201)
+        return Response(ser.errors, status=400)
+
+
+class CannedReplyDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, request, rid):
+        qs = scope_qs(CannedReply.objects.all(), request)
+        return get_object_or_404(qs, id=rid)
+
+    def patch(self, request, rid):
+        obj = self._get(request, rid)
+        ser = CannedReplySerializer(obj, data=request.data, partial=True)
+        if ser.is_valid():
+            ser.save()
+            return Response(ser.data)
+        return Response(ser.errors, status=400)
+
+    def delete(self, request, rid):
+        self._get(request, rid).delete()
+        return Response(status=204)
+
+
+# ─── 7.5 Customer Portal ────────────────────────────────────────
+
+
+class PortalTokenList(APIView):
+    """Admin-side: mint + list customer portal tokens."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(PortalToken.objects.select_related("linked_lead"), request)
+        return Response(PortalTokenSerializer(qs, many=True).data)
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        email = request.data.get("email")
+        if not email:
+            return Response({"error": "email required"}, status=400)
+        lead_id = request.data.get("linked_lead")
+        lead = None
+        if lead_id:
+            lead = Leads.objects.filter(pk=lead_id, organization=org).first()
+        token = _portal_svc.mint_token(
+            org, email,
+            name=request.data.get("name", ""),
+            lead=lead,
+            expires_days=int(request.data.get("expires_days", 90)),
+            created_by=request.user,
+        )
+        data = PortalTokenSerializer(token).data
+        data["token_plaintext"] = token.token  # only on creation
+        return Response(data, status=201)
+
+
+class PortalTokenDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, token_id):
+        qs = scope_qs(PortalToken.objects.all(), request)
+        obj = get_object_or_404(qs, id=token_id)
+        obj.is_active = False
+        obj.save(update_fields=["is_active"])
+        return Response({"revoked": obj.id})
+
+
+# Customer-facing endpoints — auth via `Authorization: Portal <token>` header.
+
+def _portal_auth(request):
+    """Resolve PortalToken from request, or return None on failure."""
+    header = request.META.get("HTTP_AUTHORIZATION", "")
+    if not header.startswith("Portal "):
+        return None
+    return _portal_svc.resolve_token(header.split(" ", 1)[1])
+
+
+class PortalMe(APIView):
+    """`GET /api/portal/me/` — used after login to bootstrap the portal app."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        tok = _portal_auth(request)
+        if not tok:
+            return Response({"error": "invalid portal token"}, status=401)
+        _portal_svc.touch(tok)
+        org = tok.organization
+        return Response({
+            "email": tok.email,
+            "name": tok.name or "",
+            "organization": {
+                "name": getattr(org, "name", ""),
+                "slug": getattr(org, "slug", ""),
+                "primary_color": getattr(org, "primary_color", "#facc15"),
+                "industry": getattr(org, "industry", ""),
+            },
+            "expires_at": tok.expires_at,
+        })
+
+
+class PortalDashboard(APIView):
+    """High-level summary for the portal home screen."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        tok = _portal_auth(request)
+        if not tok:
+            return Response({"error": "invalid portal token"}, status=401)
+        leads = _portal_svc.visible_leads(tok).count()
+        deals = _portal_svc.visible_deals(tok).count()
+        invoices = _portal_svc.visible_invoices(tok).count()
+        open_tickets = _portal_svc.visible_tickets(tok).exclude(status__in=["RESOLVED", "CLOSED"]).count()
+        return Response({
+            "leads": leads, "deals": deals,
+            "invoices": invoices, "open_tickets": open_tickets,
+        })
+
+
+class PortalTickets(APIView):
+    """Customer view of their own tickets — list + create."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        tok = _portal_auth(request)
+        if not tok:
+            return Response({"error": "invalid portal token"}, status=401)
+        qs = _portal_svc.visible_tickets(tok).order_by("-created_at")
+        return Response(TicketSerializer(qs, many=True).data)
+
+    def post(self, request):
+        tok = _portal_auth(request)
+        if not tok:
+            return Response({"error": "invalid portal token"}, status=401)
+        subject = request.data.get("subject", "").strip()
+        body = request.data.get("body", "").strip()
+        if not subject:
+            return Response({"error": "subject required"}, status=400)
+        ticket = Ticket.objects.create(
+            organization=tok.organization,
+            subject=subject,
+            description=body,
+            source="PORTAL",
+            customer_email=tok.email,
+            customer_name=tok.name,
+            customer_lead=tok.linked_lead,
+            priority=request.data.get("priority", "NORMAL"),
+        )
+        if body:
+            TicketMessage.objects.create(
+                ticket=ticket,
+                author_type="CUSTOMER",
+                author_name=tok.name or tok.email,
+                body=body,
+            )
+        return Response(TicketSerializer(ticket).data, status=201)
+
+
+class PortalTicketDetail(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request, ticket_id):
+        tok = _portal_auth(request)
+        if not tok:
+            return Response({"error": "invalid portal token"}, status=401)
+        ticket = _portal_svc.visible_tickets(tok).filter(pk=ticket_id).first()
+        if not ticket:
+            return Response({"error": "not found"}, status=404)
+        # Hide internal notes from customers
+        data = TicketDetailSerializer(ticket).data
+        data["messages"] = [m for m in data["messages"] if not m.get("is_internal")]
+        return Response(data)
+
+    def post(self, request, ticket_id):
+        """Customer reply."""
+        tok = _portal_auth(request)
+        if not tok:
+            return Response({"error": "invalid portal token"}, status=401)
+        ticket = _portal_svc.visible_tickets(tok).filter(pk=ticket_id).first()
+        if not ticket:
+            return Response({"error": "not found"}, status=404)
+        body = request.data.get("body", "").strip()
+        if not body:
+            return Response({"error": "body required"}, status=400)
+        msg = TicketMessage.objects.create(
+            ticket=ticket,
+            author_type="CUSTOMER",
+            author_name=tok.name or tok.email,
+            body=body,
+        )
+        if ticket.status == "WAITING":
+            ticket.status = "IN_PROGRESS"
+            ticket.save(update_fields=["status"])
+        return Response(TicketMessageSerializer(msg).data, status=201)
+
+
+class PortalInvoices(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        tok = _portal_auth(request)
+        if not tok:
+            return Response({"error": "invalid portal token"}, status=401)
+        invoices = _portal_svc.visible_invoices(tok)
+        return Response(InvoiceSerializer(invoices, many=True).data)
+
+
+class PortalDocuments(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        tok = _portal_auth(request)
+        if not tok:
+            return Response({"error": "invalid portal token"}, status=401)
+        docs = _portal_svc.visible_documents(tok)
+        return Response(DocumentAdminSerializer(docs, many=True).data)
+
+
+class PortalDeals(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        tok = _portal_auth(request)
+        if not tok:
+            return Response({"error": "invalid portal token"}, status=401)
+        deals = _portal_svc.visible_deals(tok)
+        return Response(DealAdminSerializer(deals, many=True).data)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# PHASE 8 — Ecosystem & Intelligence Pack
+# ═══════════════════════════════════════════════════════════════════
+
+import secrets as _secrets
+
+from .models import (
+    KbCategory, KbArticle, Form, FormField, FormSubmission,
+    SignatureRequest, SignatureSigner, SignatureEvent,
+    BackupJob, CloudConnection, AIRequest, Plugin, PushSubscription,
+    DashboardLayout,
+)
+from .serializers import (
+    KbCategorySerializer, KbArticleListSerializer, KbArticleDetailSerializer,
+    FormSerializer, FormFieldSerializer, FormSubmissionSerializer,
+    SignatureRequestSerializer, SignatureSignerSerializer,
+    BackupJobSerializer, CloudConnectionSerializer,
+    AIRequestSerializer, PluginSerializer,
+    PushSubscriptionSerializer, DashboardLayoutSerializer,
+)
+from .services import (
+    kb as _kb_svc,
+    forms as _forms_svc,
+    esign as _esign_svc,
+    backup as _backup_svc,
+    cloud_storage as _cs_svc,
+    ai as _ai_svc,
+    push as _push_svc,
+    analytics as _analytics_svc,
+    plugins as _plugins_svc,
+)
+
+
+# ─── 8.1 Knowledge Base ─────────────────────────────────────────
+
+
+class KbCategoryList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(KbCategory.objects.all(), request)
+        return Response(KbCategorySerializer(qs, many=True).data)
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        ser = KbCategorySerializer(data=request.data)
+        if ser.is_valid():
+            ser.save(organization=org)
+            return Response(ser.data, status=201)
+        return Response(ser.errors, status=400)
+
+
+class KbCategoryDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, cat_id):
+        qs = scope_qs(KbCategory.objects.all(), request)
+        obj = get_object_or_404(qs, id=cat_id)
+        ser = KbCategorySerializer(obj, data=request.data, partial=True)
+        if ser.is_valid():
+            ser.save(); return Response(ser.data)
+        return Response(ser.errors, status=400)
+
+    def delete(self, request, cat_id):
+        get_object_or_404(scope_qs(KbCategory.objects.all(), request), id=cat_id).delete()
+        return Response(status=204)
+
+
+class KbArticleList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        q = request.query_params.get("q") or ""
+        category_id = request.query_params.get("category")
+        qs = scope_qs(KbArticle.objects.select_related("category", "author"), request)
+        if category_id:
+            qs = qs.filter(category_id=category_id)
+        if q:
+            from django.db.models import Q
+            qs = qs.filter(Q(title__icontains=q) | Q(body__icontains=q) | Q(tags__icontains=q))
+        return Response(KbArticleListSerializer(qs[:200], many=True).data)
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        if not data.get("slug") and data.get("title"):
+            from django.utils.text import slugify
+            data["slug"] = slugify(data["title"])[:280]
+        ser = KbArticleDetailSerializer(data=data)
+        if ser.is_valid():
+            article = ser.save(organization=org, author=request.user)
+            if article.status == "PUBLISHED" and not article.published_at:
+                article.published_at = timezone.now()
+                article.save(update_fields=["published_at"])
+            return Response(KbArticleDetailSerializer(article).data, status=201)
+        return Response(ser.errors, status=400)
+
+
+class KbArticleDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, article_id):
+        qs = scope_qs(KbArticle.objects.select_related("category", "author"), request)
+        article = get_object_or_404(qs, id=article_id)
+        _kb_svc.track_view(article)
+        data = KbArticleDetailSerializer(article).data
+        data["related"] = KbArticleListSerializer(_kb_svc.related_articles(article), many=True).data
+        return Response(data)
+
+    def patch(self, request, article_id):
+        qs = scope_qs(KbArticle.objects.all(), request)
+        article = get_object_or_404(qs, id=article_id)
+        ser = KbArticleDetailSerializer(article, data=request.data, partial=True)
+        if ser.is_valid():
+            article = ser.save()
+            if article.status == "PUBLISHED" and not article.published_at:
+                article.published_at = timezone.now()
+                article.save(update_fields=["published_at"])
+            return Response(KbArticleDetailSerializer(article).data)
+        return Response(ser.errors, status=400)
+
+    def delete(self, request, article_id):
+        get_object_or_404(scope_qs(KbArticle.objects.all(), request), id=article_id).delete()
+        return Response(status=204)
+
+
+class KbArticleVote(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, article_id):
+        qs = scope_qs(KbArticle.objects.all(), request)
+        article = get_object_or_404(qs, id=article_id)
+        _kb_svc.vote(article, bool(request.data.get("helpful", True)))
+        return Response({"ok": True})
+
+
+# ─── 8.2 Form Builder ──────────────────────────────────────────
+
+
+class FormList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(Form.objects.prefetch_related("fields"), request)
+        return Response(FormSerializer(qs, many=True).data)
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        if not data.get("slug") and data.get("name"):
+            from django.utils.text import slugify
+            base = slugify(data["name"])[:200]
+            cand = base
+            i = 1
+            while Form.objects.filter(slug=cand).exists():
+                i += 1
+                cand = f"{base}-{i}"
+            data["slug"] = cand
+        ser = FormSerializer(data=data)
+        if ser.is_valid():
+            form = ser.save(organization=org)
+            for fld in (request.data.get("fields") or []):
+                FormField.objects.create(form=form, **{k: v for k, v in fld.items() if k != "id"})
+            return Response(FormSerializer(form).data, status=201)
+        return Response(ser.errors, status=400)
+
+
+class FormDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, request, form_id):
+        qs = scope_qs(Form.objects.prefetch_related("fields"), request)
+        return get_object_or_404(qs, id=form_id)
+
+    def get(self, request, form_id):
+        return Response(FormSerializer(self._get(request, form_id)).data)
+
+    def patch(self, request, form_id):
+        form = self._get(request, form_id)
+        ser = FormSerializer(form, data=request.data, partial=True)
+        if ser.is_valid():
+            ser.save()
+        # Replace fields if provided in the request.
+        if "fields" in request.data:
+            form.fields.all().delete()
+            for fld in request.data["fields"]:
+                FormField.objects.create(form=form, **{k: v for k, v in fld.items() if k != "id"})
+        return Response(FormSerializer(self._get(request, form_id)).data)
+
+    def delete(self, request, form_id):
+        self._get(request, form_id).delete()
+        return Response(status=204)
+
+
+class FormSubmissionsList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, form_id):
+        qs = scope_qs(Form.objects.all(), request)
+        form = get_object_or_404(qs, id=form_id)
+        subs = form.submissions.all()[:200]
+        return Response(FormSubmissionSerializer(subs, many=True).data)
+
+
+class PublicFormView(APIView):
+    """Public — anyone can fetch a form's schema or submit by slug."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request, slug):
+        form = Form.objects.filter(slug=slug, is_active=True).prefetch_related("fields").first()
+        if not form:
+            return Response({"error": "form not found"}, status=404)
+        return Response(FormSerializer(form).data)
+
+    def post(self, request, slug):
+        form = Form.objects.filter(slug=slug, is_active=True).prefetch_related("fields").first()
+        if not form:
+            return Response({"error": "form not found"}, status=404)
+        try:
+            submission = _forms_svc.submit(
+                form,
+                request.data,
+                ip=request.META.get("REMOTE_ADDR", ""),
+                ua=request.META.get("HTTP_USER_AGENT", "")[:512],
+                referrer=request.META.get("HTTP_REFERER", "")[:500],
+            )
+        except Exception as exc:  # noqa: BLE001
+            return Response({"error": str(exc)}, status=400)
+        return Response({
+            "ok": True,
+            "submission_id": submission.id,
+            "redirect_url": form.redirect_url or None,
+            "message": form.success_message,
+        })
+
+
+# ─── 8.3 E-signature ───────────────────────────────────────────
+
+
+class SignatureRequestList(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get(self, request):
+        qs = scope_qs(SignatureRequest.objects.prefetch_related("signers"), request)
+        return Response(SignatureRequestSerializer(qs, many=True).data)
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        signers_raw = request.data.get("signers", "[]")
+        if isinstance(signers_raw, str):
+            try:
+                import json as _json
+                signers = _json.loads(signers_raw)
+            except Exception:
+                return Response({"error": "signers must be JSON list"}, status=400)
+        else:
+            signers = signers_raw
+
+        ser = SignatureRequestSerializer(data=request.data)
+        if not ser.is_valid():
+            return Response(ser.errors, status=400)
+        req = ser.save(organization=org, requested_by=request.user, status="PENDING")
+        for idx, s in enumerate(signers or []):
+            _esign_svc.mint_signer(req, name=s.get("name", ""), email=s.get("email", ""), phone=s.get("phone", ""), order=idx)
+        return Response(SignatureRequestSerializer(req).data, status=201)
+
+
+class SignatureRequestDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, req_id):
+        qs = scope_qs(SignatureRequest.objects.prefetch_related("signers"), request)
+        return Response(SignatureRequestSerializer(get_object_or_404(qs, id=req_id)).data)
+
+    def delete(self, request, req_id):
+        obj = get_object_or_404(scope_qs(SignatureRequest.objects.all(), request), id=req_id)
+        obj.status = "CANCELLED"
+        obj.save(update_fields=["status"])
+        return Response(SignatureRequestSerializer(obj).data)
+
+
+class PublicSignView(APIView):
+    """Customer-facing — load the signing page, request OTP, sign."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request, token):
+        signer = _esign_svc.resolve_signer(token)
+        if not signer:
+            return Response({"error": "invalid token"}, status=404)
+        if signer.status not in ("PENDING", "VIEWED"):
+            return Response({"error": f"already {signer.status.lower()}"}, status=400)
+        signer.status = "VIEWED"
+        signer.save(update_fields=["status"])
+        return Response({
+            "signer": SignatureSignerSerializer(signer).data,
+            "request": SignatureRequestSerializer(signer.request).data,
+            "document_url": signer.request.document.url if signer.request.document else None,
+        })
+
+    def post(self, request, token):
+        signer = _esign_svc.resolve_signer(token)
+        if not signer:
+            return Response({"error": "invalid token"}, status=404)
+        action = request.data.get("action")
+        if action == "send_otp":
+            code = _esign_svc.send_otp(signer)
+            # In production, send via email/SMS. Here we return so the dev UI can display it.
+            return Response({"ok": True, "otp_demo": code, "expires_in_minutes": 15})
+        if action == "verify_and_sign":
+            otp = request.data.get("otp", "")
+            if not _esign_svc.verify_otp(signer, otp):
+                return Response({"error": "invalid or expired OTP"}, status=400)
+            _esign_svc.record_signature(
+                signer,
+                signature_image=request.data.get("signature_image", ""),
+                ip=request.META.get("REMOTE_ADDR", ""),
+                ua=request.META.get("HTTP_USER_AGENT", "")[:400],
+            )
+            return Response({"ok": True})
+        if action == "decline":
+            _esign_svc.decline(signer, reason=request.data.get("reason", ""))
+            return Response({"ok": True})
+        return Response({"error": "unknown action"}, status=400)
+
+
+# ─── 8.4 Backup & Restore ─────────────────────────────────────
+
+
+class BackupList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(BackupJob.objects.all(), request)
+        return Response(BackupJobSerializer(qs[:100], many=True).data)
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        job = BackupJob.objects.create(
+            organization=org,
+            initiated_by=request.user,
+            kind=request.data.get("kind", "MANUAL"),
+            retention_days=int(request.data.get("retention_days", 30)),
+        )
+        _backup_svc.run_backup(job)
+        return Response(BackupJobSerializer(job).data, status=201)
+
+
+class BackupRestore(APIView):
+    permission_classes = [IsSuperUser]  # restore is risky — super-admin only
+
+    def post(self, request, job_id):
+        job = get_object_or_404(BackupJob, id=job_id)
+        result = _backup_svc.restore_backup(job)
+        return Response(result, status=200 if result.get("ok") else 400)
+
+
+class BackupPrune(APIView):
+    permission_classes = [IsSuperUser]
+
+    def post(self, request):
+        deleted = _backup_svc.prune_expired()
+        return Response({"deleted": deleted})
+
+
+# ─── 8.5 Cloud Storage ────────────────────────────────────────
+
+
+class CloudConnectionList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = CloudConnection.objects.filter(user=request.user)
+        return Response(CloudConnectionSerializer(qs, many=True).data)
+
+    def delete(self, request):
+        provider = request.query_params.get("provider")
+        if not provider:
+            return Response({"error": "provider query param required"}, status=400)
+        CloudConnection.objects.filter(user=request.user, provider=provider).update(is_active=False)
+        return Response({"ok": True})
+
+
+class CloudConnectStart(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, provider):
+        url, state = _cs_svc.authorize_url(provider)
+        if not url:
+            return Response({"error": f"{provider} OAuth not configured. Set CLIENT_ID/SECRET/REDIRECT_URI in .env."}, status=400)
+        # State is stateless here for brevity — production should store + verify.
+        return Response({"authorize_url": url, "state": state})
+
+
+class CloudConnectCallback(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, provider):
+        code = request.data.get("code", "")
+        if not code:
+            return Response({"error": "code required"}, status=400)
+        org = require_org(request)
+        try:
+            token_response = _cs_svc.exchange_code(provider, code)
+        except Exception as exc:  # noqa: BLE001
+            return Response({"error": str(exc)}, status=400)
+        conn = _cs_svc.save_connection(
+            provider=provider,
+            user=request.user,
+            org=org,
+            token_response=token_response,
+        )
+        return Response(CloudConnectionSerializer(conn).data, status=201)
+
+
+# ─── 8.6 AI features ──────────────────────────────────────────
+
+
+class AILeadSummary(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, lead_id):
+        qs = scope_qs(Leads.objects.all(), request)
+        lead = get_object_or_404(qs, id=lead_id)
+        return Response(_ai_svc.summarize_lead(lead, user=request.user, org=lead.organization))
+
+
+class AIFollowupSuggest(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, lead_id):
+        qs = scope_qs(Leads.objects.all(), request)
+        lead = get_object_or_404(qs, id=lead_id)
+        return Response(_ai_svc.suggest_followup(lead, user=request.user, org=lead.organization))
+
+
+class AIDealRisk(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, deal_id):
+        qs = scope_qs(Deal.objects.all(), request)
+        deal = get_object_or_404(qs, id=deal_id)
+        return Response(_ai_svc.predict_deal_risk(deal, user=request.user, org=deal.organization))
+
+
+class AIChat(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        org = require_org(request)
+        return Response(_ai_svc.chat(request.data.get("messages") or [], user=request.user, org=org))
+
+
+class AIRequestLog(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(AIRequest.objects.select_related("user"), request).order_by("-created_at")
+        return Response(AIRequestSerializer(qs[:100], many=True).data)
+
+
+# ─── 8.7 Plugin registry ──────────────────────────────────────
+
+
+class PluginList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(Plugin.objects.all(), request)
+        return Response(PluginSerializer(qs, many=True).data)
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Super admin must include ?org=<slug>"}, status=400)
+        ser = PluginSerializer(data=request.data)
+        if ser.is_valid():
+            ser.save(organization=org)
+            return Response(ser.data, status=201)
+        return Response(ser.errors, status=400)
+
+
+class PluginDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get(self, request, plugin_id):
+        qs = scope_qs(Plugin.objects.all(), request)
+        return get_object_or_404(qs, id=plugin_id)
+
+    def patch(self, request, plugin_id):
+        plugin = self._get(request, plugin_id)
+        ser = PluginSerializer(plugin, data=request.data, partial=True)
+        if ser.is_valid():
+            ser.save(); return Response(ser.data)
+        return Response(ser.errors, status=400)
+
+    def post(self, request, plugin_id):
+        """Enable/disable + reload."""
+        plugin = self._get(request, plugin_id)
+        action = request.data.get("action")
+        if action == "enable":
+            ok = _plugins_svc.load_plugin(plugin)
+            return Response({"ok": ok, "status": plugin.status})
+        if action == "disable":
+            plugin.status = "DISABLED"
+            plugin.save(update_fields=["status"])
+            return Response({"ok": True, "status": plugin.status})
+        return Response({"error": "unknown action"}, status=400)
+
+    def delete(self, request, plugin_id):
+        self._get(request, plugin_id).delete()
+        return Response(status=204)
+
+
+class PluginHooks(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(_plugins_svc.registered_hooks())
+
+
+# ─── 8.8 Push subscriptions ───────────────────────────────────
+
+
+class PushSubscriptionList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = PushSubscription.objects.filter(user=request.user, is_active=True)
+        return Response(PushSubscriptionSerializer(qs, many=True).data)
+
+    def post(self, request):
+        org = getattr(request.user, "organization", None)
+        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        sub, _ = PushSubscription.objects.update_or_create(
+            user=request.user,
+            endpoint=data.get("endpoint", ""),
+            defaults={
+                "organization": org,
+                "platform": data.get("platform", "WEB"),
+                "p256dh": data.get("p256dh", ""),
+                "auth": data.get("auth", ""),
+                "device_label": data.get("device_label", "")[:200],
+                "is_active": True,
+            },
+        )
+        return Response(PushSubscriptionSerializer(sub).data, status=201)
+
+
+class PushSubscriptionDelete(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, sub_id):
+        sub = get_object_or_404(PushSubscription, id=sub_id, user=request.user)
+        sub.is_active = False
+        sub.save(update_fields=["is_active"])
+        return Response({"revoked": sub.id})
+
+
+class PushTest(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        result = _push_svc.send_to_user(
+            request.user,
+            title=request.data.get("title", "Test notification"),
+            body=request.data.get("body", "If you see this, push is wired up."),
+            link=request.data.get("link", "/admin"),
+        )
+        return Response(result)
+
+
+class PushPublicKey(APIView):
+    """Expose the VAPID public key for the frontend to subscribe with."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.conf import settings
+        return Response({"vapid_public_key": getattr(settings, "VAPID_PUBLIC_KEY", "")})
+
+
+# ─── 8.9 Advanced Analytics ───────────────────────────────────
+
+
+class AnalyticsForecast(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        org = require_org(request) or getattr(request.user, "organization", None)
+        if org is None:
+            return Response({"error": "no organization"}, status=400)
+        months = int(request.query_params.get("months", 12))
+        return Response(_analytics_svc.revenue_forecast(org, months=months))
+
+
+class AnalyticsCohort(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        org = require_org(request) or getattr(request.user, "organization", None)
+        if org is None:
+            return Response({"error": "no organization"}, status=400)
+        weeks = int(request.query_params.get("weeks", 8))
+        return Response(_analytics_svc.cohort_analysis(org, weeks=weeks))
+
+
+class AnalyticsChurn(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        org = require_org(request) or getattr(request.user, "organization", None)
+        if org is None:
+            return Response({"error": "no organization"}, status=400)
+        return Response(_analytics_svc.churn_metrics(org))
+
+
+class AnalyticsFunnel(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        org = require_org(request) or getattr(request.user, "organization", None)
+        if org is None:
+            return Response({"error": "no organization"}, status=400)
+        return Response(_analytics_svc.funnel_intelligence(org))
+
+
+class AnalyticsExecutive(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        org = require_org(request) or getattr(request.user, "organization", None)
+        if org is None:
+            return Response({"error": "no organization"}, status=400)
+        return Response(_analytics_svc.executive_summary(org))
+
+
+# ─── 8.10 Dashboard layouts ────────────────────────────────────
+
+
+class DashboardLayoutList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = DashboardLayout.objects.filter(user=request.user)
+        return Response(DashboardLayoutSerializer(qs, many=True).data)
+
+    def post(self, request):
+        org = getattr(request.user, "organization", None)
+        ser = DashboardLayoutSerializer(data=request.data)
+        if ser.is_valid():
+            ser.save(user=request.user, organization=org)
+            return Response(ser.data, status=201)
+        return Response(ser.errors, status=400)
+
+
+class DashboardLayoutDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, layout_id):
+        layout = get_object_or_404(DashboardLayout, id=layout_id, user=request.user)
+        ser = DashboardLayoutSerializer(layout, data=request.data, partial=True)
+        if ser.is_valid():
+            ser.save(); return Response(ser.data)
+        return Response(ser.errors, status=400)
+
+    def delete(self, request, layout_id):
+        get_object_or_404(DashboardLayout, id=layout_id, user=request.user).delete()
+        return Response(status=204)

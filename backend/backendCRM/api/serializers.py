@@ -9,6 +9,17 @@ from .models import (
     AuditLog, TwoFactorSecret, Notification,
     LeadScoreRule, LeadScoreHistory,
     SalesTarget, SavedView, CallLog,
+    # Phase 6
+    ImportJob, DistributionRule, AssignmentLog, UserSession,
+    ApprovalRequest, ApprovalStep, APIKey,
+    # Phase 7
+    AutomationRun, Department, SLAPolicy, Ticket, TicketMessage,
+    CannedReply, PortalToken,
+    # Phase 8
+    KbCategory, KbArticle, Form, FormField, FormSubmission,
+    SignatureRequest, SignatureSigner, SignatureEvent,
+    BackupJob, CloudConnection, AIRequest, Plugin, PushSubscription,
+    DashboardLayout,
 )
 
 User = get_user_model()
@@ -596,3 +607,410 @@ class CallLogSerializer(serializers.ModelSerializer):
         model = CallLog
         fields = "__all__"
         read_only_fields = ["organization", "user", "created_at"]
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Phase 6 — Enterprise Operations Pack
+# ═══════════════════════════════════════════════════════════════════
+
+
+class ImportJobSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source="user.username", read_only=True)
+    file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ImportJob
+        fields = "__all__"
+        read_only_fields = [
+            "organization", "user", "status",
+            "total_rows", "processed_rows", "succeeded_rows", "failed_rows",
+            "error_log", "created_record_ids", "created_at", "completed_at",
+        ]
+
+    def get_file_url(self, obj):
+        try:
+            return obj.file.url if obj.file else None
+        except Exception:
+            return None
+
+
+class DistributionRuleSerializer(serializers.ModelSerializer):
+    eligible_user_ids = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=User.objects.all(), required=False,
+        source="eligible_users", write_only=True,
+    )
+    eligible_users_detail = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = DistributionRule
+        fields = [
+            "id", "name", "strategy", "is_active", "priority",
+            "match_filter", "weights", "skills_required",
+            "rr_cursor", "eligible_user_ids", "eligible_users_detail",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["rr_cursor", "created_at", "updated_at"]
+
+    def get_eligible_users_detail(self, obj):
+        return [
+            {"id": u.id, "username": u.username, "role": u.role}
+            for u in obj.eligible_users.all()
+        ]
+
+
+class AssignmentLogSerializer(serializers.ModelSerializer):
+    assigned_to_username = serializers.CharField(source="assigned_to.username", read_only=True)
+    lead_name = serializers.CharField(source="lead.name", read_only=True)
+    rule_name = serializers.CharField(source="rule.name", read_only=True)
+
+    class Meta:
+        model = AssignmentLog
+        fields = "__all__"
+
+
+class UserSessionSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source="user.username", read_only=True)
+    is_current = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserSession
+        fields = [
+            "id", "user", "user_username", "jti", "user_agent", "ip_address",
+            "device_label", "is_active", "revoked_at", "last_seen_at", "created_at",
+            "is_current",
+        ]
+        read_only_fields = fields
+
+    def get_is_current(self, obj):
+        current_jti = self.context.get("current_jti")
+        return bool(current_jti and current_jti == obj.jti)
+
+
+class ApprovalStepSerializer(serializers.ModelSerializer):
+    approver_username = serializers.CharField(source="approver.username", read_only=True)
+
+    class Meta:
+        model = ApprovalStep
+        fields = "__all__"
+
+
+class ApprovalRequestSerializer(serializers.ModelSerializer):
+    requester_username = serializers.CharField(source="requester.username", read_only=True)
+    steps = ApprovalStepSerializer(many=True, read_only=True)
+    current_approver = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ApprovalRequest
+        fields = [
+            "id", "request_type", "title", "description", "payload",
+            "approver_chain", "current_step", "status",
+            "requester", "requester_username", "current_approver",
+            "steps", "decided_at", "created_at", "updated_at",
+        ]
+        read_only_fields = ["requester", "current_step", "status", "decided_at", "created_at", "updated_at"]
+
+    def get_current_approver(self, obj):
+        chain = obj.approver_chain or []
+        if obj.status != "PENDING" or obj.current_step >= len(chain):
+            return None
+        uid = chain[obj.current_step]
+        user = User.objects.filter(pk=uid).first()
+        return {"id": user.id, "username": user.username} if user else None
+
+
+class APIKeySerializer(serializers.ModelSerializer):
+    created_by_username = serializers.CharField(source="created_by.username", read_only=True)
+    key_preview = serializers.SerializerMethodField()
+
+    class Meta:
+        model = APIKey
+        fields = [
+            "id", "name", "key", "key_preview",
+            "can_read", "can_write", "allowed_modules",
+            "is_active", "last_used_at", "revoked_at", "expires_at",
+            "created_by", "created_by_username", "created_at",
+        ]
+        read_only_fields = ["key", "key_preview", "last_used_at", "revoked_at", "created_by", "created_at"]
+
+    def get_key_preview(self, obj):
+        if not obj.key:
+            return ""
+        # Show only the first/last 4 chars in lists; full key returned only on creation.
+        return f"{obj.key[:4]}…{obj.key[-4:]}"
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Phase 7 — Enterprise Integrations Pack
+# ═══════════════════════════════════════════════════════════════════
+
+
+class AutomationRunSerializer(serializers.ModelSerializer):
+    rule_name = serializers.CharField(source="rule.name", read_only=True)
+
+    class Meta:
+        model = AutomationRun
+        fields = "__all__"
+
+
+class DepartmentSerializer(serializers.ModelSerializer):
+    member_ids = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=User.objects.all(), required=False,
+        source="members", write_only=True,
+    )
+    member_count = serializers.SerializerMethodField()
+    ticket_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Department
+        fields = [
+            "id", "name", "description", "email", "color", "is_active",
+            "default_assignee", "member_ids", "member_count", "ticket_count",
+            "created_at",
+        ]
+        read_only_fields = ["created_at"]
+
+    def get_member_count(self, obj):
+        return obj.members.count()
+
+    def get_ticket_count(self, obj):
+        return obj.tickets.count()
+
+
+class SLAPolicySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SLAPolicy
+        fields = "__all__"
+
+
+class TicketMessageSerializer(serializers.ModelSerializer):
+    author_username = serializers.CharField(source="author.username", read_only=True)
+
+    class Meta:
+        model = TicketMessage
+        fields = "__all__"
+        read_only_fields = ["author", "author_type", "created_at"]
+
+
+class TicketSerializer(serializers.ModelSerializer):
+    assigned_to_username = serializers.CharField(source="assigned_to.username", read_only=True)
+    department_name = serializers.CharField(source="department.name", read_only=True)
+    message_count = serializers.SerializerMethodField()
+    last_message_at = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Ticket
+        fields = [
+            "id", "number", "subject", "description",
+            "status", "priority", "source",
+            "department", "department_name",
+            "assigned_to", "assigned_to_username",
+            "customer_email", "customer_name", "customer_phone", "customer_lead",
+            "sla_policy", "first_response_due", "resolution_due",
+            "first_response_at", "resolved_at", "sla_breached", "escalated",
+            "tags",
+            "message_count", "last_message_at",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = [
+            "number", "first_response_due", "resolution_due",
+            "first_response_at", "resolved_at", "sla_breached", "escalated",
+            "created_at", "updated_at",
+        ]
+
+    def get_message_count(self, obj):
+        return obj.messages.count()
+
+    def get_last_message_at(self, obj):
+        last = obj.messages.order_by("-created_at").first()
+        return last.created_at if last else None
+
+
+class TicketDetailSerializer(TicketSerializer):
+    messages = TicketMessageSerializer(many=True, read_only=True)
+
+    class Meta(TicketSerializer.Meta):
+        fields = TicketSerializer.Meta.fields + ["messages"]
+
+
+class CannedReplySerializer(serializers.ModelSerializer):
+    department_name = serializers.CharField(source="department.name", read_only=True)
+
+    class Meta:
+        model = CannedReply
+        fields = "__all__"
+        read_only_fields = ["created_by", "usage_count", "created_at"]
+
+
+class PortalTokenSerializer(serializers.ModelSerializer):
+    token_preview = serializers.SerializerMethodField()
+    linked_lead_name = serializers.CharField(source="linked_lead.name", read_only=True)
+    magic_link = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PortalToken
+        fields = [
+            "id", "email", "name", "token_preview", "magic_link",
+            "linked_lead", "linked_lead_name",
+            "is_active", "expires_at", "last_used_at", "created_at",
+        ]
+        read_only_fields = ["token_preview", "magic_link", "last_used_at", "created_at"]
+
+    def get_token_preview(self, obj):
+        return f"{obj.token[:6]}…{obj.token[-4:]}" if obj.token else ""
+
+    def get_magic_link(self, obj):
+        # Frontend Vite app should pick this up. The host is environment-specific
+        # so we build a relative path; clients can prepend their PORTAL_BASE_URL.
+        return f"/portal/login?t={obj.token}"
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Phase 8 — Ecosystem & Intelligence Pack
+# ═══════════════════════════════════════════════════════════════════
+
+
+class KbCategorySerializer(serializers.ModelSerializer):
+    article_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = KbCategory
+        fields = "__all__"
+
+    def get_article_count(self, obj):
+        return obj.articles.filter(status="PUBLISHED").count()
+
+
+class KbArticleListSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source="category.name", read_only=True)
+    author_username = serializers.CharField(source="author.username", read_only=True)
+
+    class Meta:
+        model = KbArticle
+        fields = [
+            "id", "title", "slug", "excerpt", "tags", "status", "is_public", "is_featured",
+            "category", "category_name", "author", "author_username",
+            "view_count", "helpful_count", "not_helpful_count",
+            "published_at", "created_at", "updated_at",
+        ]
+
+
+class KbArticleDetailSerializer(KbArticleListSerializer):
+    class Meta(KbArticleListSerializer.Meta):
+        fields = KbArticleListSerializer.Meta.fields + ["body"]
+
+
+class FormFieldSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FormField
+        fields = "__all__"
+
+
+class FormSerializer(serializers.ModelSerializer):
+    fields_detail = FormFieldSerializer(many=True, read_only=True, source="fields")
+
+    class Meta:
+        model = Form
+        fields = [
+            "id", "name", "slug", "description", "success_message", "redirect_url",
+            "create_lead", "notify_email", "notify_user",
+            "is_active", "submission_count",
+            "fields_detail", "created_at", "updated_at",
+        ]
+        read_only_fields = ["submission_count", "created_at", "updated_at"]
+
+
+class FormSubmissionSerializer(serializers.ModelSerializer):
+    form_name = serializers.CharField(source="form.name", read_only=True)
+    lead_name = serializers.CharField(source="lead.name", read_only=True)
+
+    class Meta:
+        model = FormSubmission
+        fields = "__all__"
+
+
+class SignatureSignerSerializer(serializers.ModelSerializer):
+    sign_link = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SignatureSigner
+        fields = [
+            "id", "name", "email", "phone", "order", "status",
+            "signed_at", "ip_address", "sign_link",
+        ]
+        read_only_fields = fields
+
+    def get_sign_link(self, obj):
+        return f"/sign/{obj.token}"
+
+
+class SignatureRequestSerializer(serializers.ModelSerializer):
+    signers = SignatureSignerSerializer(many=True, read_only=True)
+    requested_by_username = serializers.CharField(source="requested_by.username", read_only=True)
+
+    class Meta:
+        model = SignatureRequest
+        fields = "__all__"
+        read_only_fields = ["status", "completed_at", "signed_document", "created_at", "updated_at"]
+
+
+class BackupJobSerializer(serializers.ModelSerializer):
+    initiated_by_username = serializers.CharField(source="initiated_by.username", read_only=True)
+    file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BackupJob
+        fields = "__all__"
+        read_only_fields = ["status", "file", "file_size_bytes", "record_count",
+                             "error_message", "started_at", "completed_at"]
+
+    def get_file_url(self, obj):
+        try:
+            return obj.file.url if obj.file else None
+        except Exception:
+            return None
+
+
+class CloudConnectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CloudConnection
+        fields = [
+            "id", "provider", "account_email", "account_name",
+            "scope", "is_active", "last_synced_at", "created_at",
+            "token_expires_at",
+        ]
+        read_only_fields = fields
+
+
+class AIRequestSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source="user.username", read_only=True)
+
+    class Meta:
+        model = AIRequest
+        fields = [
+            "id", "kind", "provider", "model", "prompt", "response",
+            "context", "tokens_used", "cost_cents", "success", "error_message",
+            "user", "user_username", "created_at",
+        ]
+
+
+class PluginSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Plugin
+        fields = "__all__"
+
+
+class PushSubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PushSubscription
+        fields = [
+            "id", "platform", "endpoint", "device_label",
+            "is_active", "last_used_at", "created_at",
+        ]
+        read_only_fields = ["last_used_at", "created_at"]
+
+
+class DashboardLayoutSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DashboardLayout
+        fields = "__all__"
+        read_only_fields = ["user", "created_at", "updated_at"]

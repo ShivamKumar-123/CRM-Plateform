@@ -26,7 +26,9 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",  # session revoke support
     "corsheaders",
+    "drf_spectacular",                            # Public API docs (Phase 6)
     "api.apps.ApiConfig",
 ]
 
@@ -40,6 +42,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "api.middleware.SessionTrackingMiddleware",   # Phase 6 — device list
 ]
 
 ROOT_URLCONF = "backendCRM.urls"
@@ -158,6 +161,36 @@ REST_FRAMEWORK = {
         "anon": "30/min",
         "user": "1000/hour",
     },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# ---------------------------------------------------------------------------
+# Public API documentation (Phase 6)
+# ---------------------------------------------------------------------------
+SPECTACULAR_SETTINGS = {
+    "TITLE": "CRM Suite API",
+    "DESCRIPTION": "Multi-tenant CRM REST API. Use a JWT access token in the "
+                    "`Authorization: Bearer <token>` header, or an organization "
+                    "API key via `Authorization: ApiKey <key>` (when enabled).",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SORT_OPERATIONS": False,
+    "SCHEMA_PATH_PREFIX": r"/api",
+    "TAGS": [
+        {"name": "Auth"},
+        {"name": "Leads"},
+        {"name": "Deals"},
+        {"name": "Customers"},
+        {"name": "Tasks"},
+        {"name": "Filters"},
+        {"name": "Imports"},
+        {"name": "Distribution"},
+        {"name": "Sessions"},
+        {"name": "Approvals"},
+        {"name": "API Keys"},
+        {"name": "Admin"},
+    ],
 }
 
 SIMPLE_JWT = {
@@ -194,9 +227,52 @@ RAZORPAY_WEBHOOK_SECRET = config("RAZORPAY_WEBHOOK_SECRET", default="")
 WHATSAPP_PHONE_NUMBER_ID     = config("WHATSAPP_PHONE_NUMBER_ID", default="")
 WHATSAPP_ACCESS_TOKEN        = config("WHATSAPP_ACCESS_TOKEN", default="")
 WHATSAPP_BUSINESS_ACCOUNT_ID = config("WHATSAPP_BUSINESS_ACCOUNT_ID", default="")
+WHATSAPP_WEBHOOK_VERIFY_TOKEN = config("WHATSAPP_WEBHOOK_VERIFY_TOKEN", default="")
 
-REDIS_URL          = config("REDIS_URL", default="")
-CELERY_BROKER_URL  = config("CELERY_BROKER_URL", default=REDIS_URL)
+REDIS_URL              = config("REDIS_URL", default="")
+CELERY_BROKER_URL      = config("CELERY_BROKER_URL", default=REDIS_URL)
+CELERY_RESULT_BACKEND  = config("CELERY_RESULT_BACKEND", default=REDIS_URL)
+CELERY_TASK_ALWAYS_EAGER = config("CELERY_TASK_ALWAYS_EAGER", default=False, cast=bool)
+CELERY_ACCEPT_CONTENT  = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+
+PORTAL_BASE_URL = config("PORTAL_BASE_URL", default="http://localhost:5173")
+
+# ─── Phase 8 integration credentials (all optional) ────────────────
+
+# AI providers
+OPENAI_API_KEY    = config("OPENAI_API_KEY", default="")
+OPENAI_MODEL      = config("OPENAI_MODEL", default="gpt-4o-mini")
+ANTHROPIC_API_KEY = config("ANTHROPIC_API_KEY", default="")
+ANTHROPIC_MODEL   = config("ANTHROPIC_MODEL", default="claude-3-5-haiku-20241022")
+AI_PROVIDER       = config("AI_PROVIDER", default="")  # "" = auto, else "openai" | "anthropic"
+
+# Cloud storage OAuth
+GOOGLE_CLIENT_ID     = config("GOOGLE_CLIENT_ID", default="")
+GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", default="")
+GOOGLE_REDIRECT_URI  = config("GOOGLE_REDIRECT_URI", default="http://localhost:5173/admin/cloud-storage/callback?provider=GOOGLE_DRIVE")
+DROPBOX_CLIENT_ID     = config("DROPBOX_CLIENT_ID", default="")
+DROPBOX_CLIENT_SECRET = config("DROPBOX_CLIENT_SECRET", default="")
+DROPBOX_REDIRECT_URI  = config("DROPBOX_REDIRECT_URI", default="http://localhost:5173/admin/cloud-storage/callback?provider=DROPBOX")
+ONEDRIVE_CLIENT_ID     = config("ONEDRIVE_CLIENT_ID", default="")
+ONEDRIVE_CLIENT_SECRET = config("ONEDRIVE_CLIENT_SECRET", default="")
+ONEDRIVE_REDIRECT_URI  = config("ONEDRIVE_REDIRECT_URI", default="http://localhost:5173/admin/cloud-storage/callback?provider=ONEDRIVE")
+
+# Web Push (VAPID)
+VAPID_PUBLIC_KEY    = config("VAPID_PUBLIC_KEY", default="")
+VAPID_PRIVATE_KEY   = config("VAPID_PRIVATE_KEY", default="")
+VAPID_CLAIMS_EMAIL  = config("VAPID_CLAIMS_EMAIL", default="")
+
+# Backup encryption (optional — uses cryptography.fernet when set)
+BACKUP_ENCRYPTION_KEY = config("BACKUP_ENCRYPTION_KEY", default="")
+
+# ─── Internationalisation ───────────────────────────────────────────
+LANGUAGE_CODE = config("LANGUAGE_CODE", default="en-us")
+USE_I18N = True
+LANGUAGES = [
+    ("en", "English"),
+    ("hi", "हिन्दी"),
+]
 
 SENTRY_DSN         = config("SENTRY_DSN", default="")
 SENTRY_ENVIRONMENT = config("SENTRY_ENVIRONMENT", default="development")

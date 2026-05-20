@@ -1,0 +1,62 @@
+import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext.jsx";
+import { IndustryProvider } from "./context/IndustryContext.jsx";
+import { NotificationProvider } from "./context/NotificationContext.jsx";
+import { DemoModeProvider } from "./context/DemoModeContext.jsx";
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import Layout from "./Layout.jsx";
+
+import Landing from "./pages/Landing.jsx";
+import Login from "./pages/Login.jsx";
+import Signup from "./pages/Signup.jsx";
+
+import Dashboard from "./pages/Dashboard.jsx";
+import Leads from "./pages/Leads.jsx";
+import Customers from "./pages/Customers.jsx";
+import Deals from "./pages/Deals.jsx";
+import Reports from "./pages/Reports.jsx";
+import Automation from "./pages/Automation.jsx";
+import CommandCenter from "./pages/CommandCenter.jsx";
+import Settings from "./pages/Settings.jsx";
+
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <>
+      <Route path="/" element={<Landing />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+
+      <Route
+        path="/app"
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="leads" element={<Leads />} />
+        <Route path="deals" element={<Deals />} />
+        <Route path="customers" element={<Customers />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="automation" element={<Automation />} />
+        <Route path="command-center" element={<CommandCenter />} />
+        <Route path="settings" element={<Settings />} />
+      </Route>
+    </>
+  )
+);
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <IndustryProvider>
+        <NotificationProvider>
+          <DemoModeProvider>
+            <RouterProvider router={router} />
+          </DemoModeProvider>
+        </NotificationProvider>
+      </IndustryProvider>
+    </AuthProvider>
+  );
+}

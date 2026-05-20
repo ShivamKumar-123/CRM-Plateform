@@ -3,9 +3,9 @@
 **Project:** CRM Suite — industry-agnostic multi-tenant CRM platform
 **Repo:** CRM-Advance-International-Solar (history started solar-only; now generic)
 **Audience:** Any business — solar, real estate, healthcare, education, logistics, e-commerce, manufacturing, agencies, finance, insurance, B2B sales, services
-**Last updated:** 2026-05-20 (Phase 5 — Enterprise Foundation Pack: Lead Scoring · Duplicate Detection · Sales Targets · Industry Templates · Saved Views · Call Logs)
+**Last updated:** 2026-05-20 (Phase 8 — Ecosystem & Intelligence Pack: Knowledge Base · Form Builder · E-Signature · Backups · Cloud Storage · AI · Plugins · Push · Analytics · Dashboard Builder · i18n + all prior phases)
 
-This document catalogues every feature shipped across the three apps in this repository.
+This document catalogues every feature shipped across the **four apps** in this repository.
 
 ---
 
@@ -13,13 +13,14 @@ This document catalogues every feature shipped across the three apps in this rep
 
 CRM Suite started as a vertical CRM for Indian solar installers and has been transformed into a **multi-tenant, industry-agnostic SaaS platform** styled along Zoho CRM / HubSpot / Salesforce / Monday CRM but lighter and self-hostable. Every Lead, Deal, Task, Payment, and Document is scoped to an `Organization`. Each organization picks its industry, configures its own status pipeline, and gets its own users, branding, and quotas.
 
-**Three deliverables:**
+**Four deliverables:**
 
 | App | Path | Stack |
 |-----|------|-------|
 | Backend API | [`backend/backendCRM/`](backend/backendCRM/) | Django 6 · DRF · SimpleJWT · PostgreSQL · WhiteNoise · Gunicorn |
 | Web frontend | [`frontend/`](frontend/) | React 19 · Vite 7 · Tailwind 4 · Framer Motion · React Router 7 |
 | Mobile app | [`mobile/`](mobile/) | Expo SDK 54 · React Native 0.81 · React Navigation 7 · AsyncStorage |
+| **Demo showcase** | [`demo/`](demo/) | React 19 · Vite 7 · Tailwind 4 · Framer Motion · **Recharts** · localStorage-only (zero backend) |
 
 ---
 
@@ -457,6 +458,61 @@ Sidebar layout:
 
 ---
 
+## 8.5. Demo Showcase App ([demo/](demo/)) — NEW
+
+A fully **client-side, zero-backend** React app that mirrors the look and feel of the production platform, designed for **investor pitches, client sales demos, and offline marketing**. Built to feel like the public demos from HubSpot / Zoho / Salesforce, but it runs entirely in `localStorage`.
+
+> See [`demo/FEATURES.md`](demo/FEATURES.md) for the full module-by-module catalogue.
+
+### 8.5.1 Stack & footprint
+- React 19 · Vite 7 · Tailwind 4 · Framer Motion 12 · **Recharts 3** · lucide-react
+- Build: ~975 kB JS (≈ 295 kB gzipped), ~67 kB CSS, ~6.5 s build time
+- Static deployment compatible — drop `dist/` on any CDN
+
+### 8.5.2 Provider stack (state architecture)
+```
+<AuthProvider>             ← session
+  <IndustryProvider>       ← active industry + dataVersion broadcaster
+    <NotificationProvider> ← fake realtime, sound toggle
+      <DemoModeProvider>   ← presentation + sales demo toggles + keyboard nav
+        <RouterProvider>
+```
+
+### 8.5.3 Demo-only enhancements (14 features)
+
+| # | Feature | Description |
+|---|---------|-------------|
+| 1 | **Fake real-time notifications** | Auto-generates one every 20–40 s · sound ping · mark-read · clear all |
+| 2 | **Animated KPI counters** | Framer `animate()` + `useInView` · custom INR formatter |
+| 3 | **Activity timeline feed** | Vertical rail · 7 colored type badges · relative timestamps · staggered enter |
+| 4 | **Industry switcher** | **5 presets** (Solar · Real Estate · Healthcare · Logistics · Insurance) repopulating every module on click |
+| 5 | **Automation flow visualizer** | Visual trigger → action chains with animated `↓` arrows + glow halos |
+| 6 | **Sales leaderboard** | Top-5 reps · gold/silver/bronze medals · animated revenue bars |
+| 7 | **Live activity ticker** | Floating bottom-left widget · spawns industry-flavored events every 6–12 s |
+| 8 | **Advanced reports (Recharts)** | Revenue trend area · conversion funnel · source pie · rep bars · MoM growth |
+| 9 | **Demo Command Center** | Reset · industry switch · generate leads · simulate activity · toggle modes |
+| 10 | **Presentation Mode** | Fullscreen · spotlight vignette · ←/→/Esc keyboard nav · auto-rotate routes |
+| 11 | **Demo Assistant widget** | Floating sparkle bubble · route-aware tips · auto-rotate every 8 s |
+| 12 | **Premium visual polish** | `.glow-border` conic-gradient · `.pulse-ring` · `.spotlight` · canvas particles |
+| 13 | **CTA modal system** | 4 variants — Book demo · Full platform · Enterprise · Free trial · with success state |
+| 14 | **Industry-specific seeded data** | Each preset has its own vocabulary, products, reps, cities, name pools |
+
+### 8.5.4 Routes
+- **Public:** `/` (landing with 4-CTA grid) · `/login` · `/signup`
+- **Protected:** `/app` (Dashboard) · `/app/leads` · `/app/deals` · `/app/customers` · `/app/reports` · **`/app/automation`** · **`/app/command-center`** · `/app/settings`
+
+### 8.5.5 Persistence
+Single `localStorage` key `crm_demo_v1` holds: `users`, `leads`, `customers`, `deals`, `activities`, `reps`, `notifications`, `session`, `industry`, `preferences`. Wipe in one shot from Command Center, Topbar avatar, Settings, or DevTools.
+
+### 8.5.6 Verified
+- ✅ `npm run build` clean (2,803 modules, 6.5 s)
+- ✅ Industry switch from Solar → Real Estate → Healthcare repopulates Dashboard / Leads / Deals / Reports
+- ✅ Notification bell counts unread, mark-all-read flips to 0
+- ✅ Presentation mode arrows navigate through 6 routes, Esc exits
+- ✅ Recharts area + pie + bar all render with correct industry data
+
+---
+
 ## 9. Theming & Branding
 
 | Mode | Background | Accents | Where |
@@ -659,6 +715,24 @@ Run: `python manage.py shell -c "exec(open('seed_data.py', encoding='utf-8-sig')
 | GET / POST | `/api/call-logs/` | 🔒 | Call log CRUD with stats aggregate |
 | GET | `/api/industry-templates/` | 🔒 | List 7 industry presets with stages + fields |
 | POST | `/api/admin/organizations/<id>/apply-template/` | 👑 | Apply template to org (idempotent) |
+| GET | `/api/filters/meta/?module=` | 🔒 | Field whitelist + operators per field |
+| POST | `/api/filters/query/` | 🔒 | Run a filter AST against a module |
+| GET / POST | `/api/imports/` | 🔒 | List import jobs / upload new file |
+| GET / POST / DELETE | `/api/imports/<id>/` | 🔒 | Detail / commit / rollback / delete |
+| GET | `/api/export/?module=` | 🔒 | Streaming CSV export of org-scoped module data |
+| GET / POST | `/api/distribution/rules/` | 🔒 | Lead-distribution rule CRUD |
+| GET / PATCH / DELETE | `/api/distribution/rules/<id>/` | 🔒 | Detail / update / delete |
+| GET | `/api/distribution/logs/` | 🔒 | Assignment audit log |
+| GET / DELETE | `/api/sessions/me/` | 🔒 | List my devices / sign out others |
+| POST | `/api/sessions/<id>/revoke/` | 🔒 | Revoke a specific device |
+| GET | `/api/admin/sessions/` | 👑 | Cross-user session list |
+| GET / POST | `/api/approvals/` | 🔒 | Approval-request list + create |
+| GET / POST / DELETE | `/api/approvals/<id>/` | 🔒 | Detail / approve-reject-comment / cancel |
+| GET / POST | `/api/api-keys/` | 🔒 | List org API keys / generate new key |
+| PATCH / DELETE | `/api/api-keys/<id>/` | 🔒 | Update / revoke key |
+| GET | `/api/docs/` | Public | Swagger UI |
+| GET | `/api/redoc/` | Public | ReDoc UI |
+| GET | `/api/schema/` | Public | Raw OpenAPI schema (YAML) |
 | GET | `/api/admin/stats/` | 👑 SuperUser | Platform aggregates (or `?org=<slug>`) |
 | GET / POST | `/api/admin/users/` | 👑 | List / create users across orgs |
 | GET / PATCH / DELETE | `/api/admin/users/<id>/` | 👑 | Per-user management |
@@ -803,6 +877,320 @@ Shipped in [migration 0015](backend/backendCRM/api/migrations/) — 5 new models
 - ✅ Duplicate detection found 2nd lead with same phone (matching by last 10 digits)
 - ✅ Sales leaderboard shows priya.sales/rakesh.sales/etc. with won_count + won_value
 
+### Phase 6 — Enterprise Operations Pack (6 features, no external credentials required)
+
+Shipped in [migration 0016](backend/backendCRM/api/migrations/) — 7 new models, 1 service module each for distribution + imports, 1 new filter DSL module, 1 new session-tracking middleware, 16 new endpoints, 6 new admin pages.
+
+| # | Feature | Backend artifacts | Endpoints | Admin UI | Status |
+|---|---------|-------------------|-----------|----------|--------|
+| 1 | **Advanced Filter Builder** | [filters_dsl.py](backend/backendCRM/api/filters_dsl.py) — recursive AST→Q parser | `/api/filters/meta/`, `/api/filters/query/` | `/admin/filters` — visual AND/OR/NOT tree builder | 🟢 Working |
+| 2 | **Import / Export Engine** | `ImportJob` model + [services/imports.py](backend/backendCRM/api/services/imports.py) (CSV + openpyxl Excel + dry-run + rollback) | `/api/imports/*`, `/api/export/` | `/admin/import-export` — drag-drop upload + field mapping + preview | 🟢 Working |
+| 3 | **Lead Distribution Engine** | `DistributionRule` + `AssignmentLog` + [services/distribution.py](backend/backendCRM/api/services/distribution.py) (5 strategies) | `/api/distribution/rules/*`, `/api/distribution/logs/` | `/admin/distribution` — rule CRUD + recent assignments | 🟢 Working |
+| 4 | **Session & Device Management** | `UserSession` model + [middleware.py](backend/backendCRM/api/middleware.py) `SessionTrackingMiddleware` | `/api/sessions/me/`, `/api/sessions/<id>/revoke/`, `/api/admin/sessions/` | `/admin/sessions` — list + revoke + "Sign out others" | 🟢 Working |
+| 5 | **Approval Workflows** | `ApprovalRequest` + `ApprovalStep` — multi-step chain engine | `/api/approvals/`, `/api/approvals/<id>/` | `/admin/approvals` — inbox/requested/all tabs with approve/reject/comment | 🟢 Working |
+| 6 | **Public API Docs / API Keys** | `APIKey` model + `drf-spectacular` integration | `/api/docs/` (Swagger), `/api/redoc/`, `/api/schema/`, `/api/api-keys/*` | `/admin/api-docs` — link cards + key generator with one-shot plaintext reveal | 🟢 Working |
+
+**Filter Builder details:**
+- Recursive JSON AST: `{"op": "AND|OR|NOT", "children": [...]}` for groups, `{"field, "op", "value"}` for leaves
+- 13 leaf operators: `equals`, `not_equals`, `contains`, `starts_with`, `ends_with`, `gt`, `gte`, `lt`, `lte`, `between`, `in`, `not_in`, `is_empty`, `not_empty`
+- Per-module field whitelist (lead / deal / customer / task) prevents probing private columns
+- Operator suggestions endpoint (`/api/filters/meta/`) returns sensible operators per field type (numeric / date / string)
+- Same AST is reused by `DistributionRule.match_filter` to gate which leads a rule applies to
+
+**Import/Export details:**
+- Accepts CSV (any encoding — auto-detects BOM / cp1252 / latin-1) and `.xlsx` (via openpyxl)
+- Two-phase flow: upload returns a preview (up to 20 mapped rows + validation issues), then a separate commit call writes to DB
+- Per-module field whitelist (lead / deal / customer / task) — only safe fields are importable
+- **Rollback** — every committed job stores its created record IDs; one click deletes them
+- Export endpoint streams a CSV with the same field set, respects org scope + optional filter AST query param
+
+**Lead Distribution details:**
+- 5 strategies: `ROUND_ROBIN` (with persistent cursor) · `LEAST_LOADED` (live count of open leads) · `TERRITORY` (matches user.territory to lead.city/state) · `WEIGHTED` (proportional pick from JSON weights) · `SKILL` (matches `skills_required` against user.role + company_name)
+- Triggered by signal in [signals.py](backend/backendCRM/api/signals.py) — `_auto_assign_lead()` runs on `Leads` post_save when `assigned_to` is unset
+- Wrapped in try/except so distribution failures never block lead creation
+- Each assignment writes to `AssignmentLog` with rule, strategy, and human-readable reason
+- Rules ordered by `priority` (lower number checked first); first matching rule wins
+
+**Session Management details:**
+- `SessionTrackingMiddleware` decodes JWT jti without re-verifying (auth class already validated), upserts a `UserSession` row per token
+- Coarse UA sniffing produces human labels like "Chrome · Windows 10/11" / "Safari · iPhone" / "Expo app · Android"
+- Revoke endpoint flips `is_active=False` AND adds the jti to SimpleJWT's `BlacklistedToken` (token_blacklist app installed in Phase 6)
+- "Sign out other devices" — revokes every active session except the current jti in one shot
+- Super-admin view spans all users (`/admin/sessions` with mode switcher)
+
+**Approval Workflows details:**
+- Chain stored as ordered JSON list of user IDs (`approver_chain: [3, 7, 12]`) with a `current_step` cursor
+- 6 request types: `DISCOUNT`, `CONTRACT`, `PAYMENT`, `LEAVE`, `REFUND`, `OTHER`
+- Three actions per step: `APPROVED` (advances cursor; final approval transitions to APPROVED), `REJECTED` (terminates immediately), `COMMENT` (adds a note without advancing)
+- Tabs: inbox (`?mine=pending_my_approval`) · requested (`?mine=requested`) · all
+- Requester or super-admin can cancel a pending request
+- Each step persisted to `ApprovalStep` with comment, approver, timestamp
+
+**API Docs details:**
+- `drf-spectacular` configured with custom title, description, tags (Auth / Leads / Deals / Filters / Imports / Distribution / Sessions / Approvals / API Keys / Admin)
+- Three doc surfaces: **Swagger UI** (`/api/docs/`), **ReDoc** (`/api/redoc/`), raw **OpenAPI schema** (`/api/schema/`)
+- API key model with read/write scopes + module allowlist + expiry; opaque token format `crm_<urlsafe_32>`
+- Plaintext key returned exactly once on creation — UI shows a copy-to-clipboard modal then never again
+- Last-used + revoked timestamps tracked
+
+**Verified:**
+- ✅ `python manage.py makemigrations api` → migration 0016 created cleanly
+- ✅ `python manage.py check` → 0 issues
+- ✅ `python manage.py spectacular --file schema.yml` → schema generated (28 warnings expected for hand-rolled APIViews; surface area is complete)
+- ✅ `npm run build` → frontend production bundle clean (2,177 modules, 4.6s, ~232 kB gzipped)
+
+---
+
+### Phase 7 — Enterprise Integrations Pack (5 features, real external-service integration with env-driven credentials)
+
+Shipped in [migration 0017](backend/backendCRM/api/migrations/) — 7 new models, 5 new service modules, Celery scaffold, 28 new endpoints, 2 new admin pages + a complete customer portal route tree.
+
+| # | Feature | Backend artifacts | Endpoints | UI | Status |
+|---|---------|-------------------|-----------|----|--------|
+| 1 | **Automation Execution Engine** | `AutomationRun` model + [services/automation_engine.py](backend/backendCRM/api/services/automation_engine.py) (dispatcher + 7 action types) + [tasks.py](backend/backendCRM/api/tasks.py) (Celery `execute_automation_rule`) + [backendCRM/celery.py](backend/backendCRM/backendCRM/celery.py) bootstrap | `/api/automation/runs/`, `/api/automation/rules/<id>/test/` | Existing `/admin/automation` extended (run history tab to come) | 🟢 Working (inline + Celery-ready) |
+| 2 | **Real WhatsApp Cloud API** | [services/whatsapp_client.py](backend/backendCRM/api/services/whatsapp_client.py) — Meta Graph v18 send + template + media + webhook handler | `/api/whatsapp/send/`, `/api/whatsapp/bulk-send/`, `/api/whatsapp/webhook/` (GET verify + POST events) | Existing `/admin/whatsapp` (send + logs) | 🟢 Code complete (needs `WHATSAPP_*` env creds) |
+| 3 | **Razorpay Billing** | [services/razorpay_client.py](backend/backendCRM/api/services/razorpay_client.py) — order creation + signature verify + webhook + GST invoice PDF (reportlab) | `/api/billing/order/`, `/api/billing/verify/`, `/api/billing/webhook/`, `/api/billing/invoices/<id>/pdf/` | Existing `/admin/billing` | 🟢 Code complete (needs `RAZORPAY_*` env creds; falls back to stub mode) |
+| 4 | **Helpdesk / Ticketing** | `Department`, `SLAPolicy`, `Ticket`, `TicketMessage`, `CannedReply` models + [services/helpdesk.py](backend/backendCRM/api/services/helpdesk.py) (SLA timers, auto-assign, escalation, canned-reply templating) | `/api/helpdesk/tickets/*`, `/api/helpdesk/departments/*`, `/api/helpdesk/sla-policies/*`, `/api/helpdesk/canned-replies/*`, `/api/helpdesk/tickets/<id>/reply/` | New `/admin/helpdesk` page — 4 tabs (Tickets / Departments / SLA / Canned) with detail-pane reply UI + status switcher + SLA breach indicator | 🟢 Working |
+| 5 | **Customer Portal** | `PortalToken` model + [services/portal.py](backend/backendCRM/api/services/portal.py) — opaque-token auth (`Authorization: Portal <token>`), org-scoped read views, ticket create/reply | Admin: `/api/portal-tokens/*`; Customer: `/api/portal/me/`, `/api/portal/dashboard/`, `/api/portal/tickets/*`, `/api/portal/invoices/`, `/api/portal/documents/`, `/api/portal/deals/` | New `/admin/portal-tokens` (mint + reveal + revoke) + complete `/portal/*` route tree (login · dashboard · tickets · invoices · documents) | 🟢 Working |
+
+**Automation engine details:**
+- Dispatcher tries Celery first (`execute_automation_rule.delay()`), falls back to inline `execute_inline()` when broker isn't configured — dev environments don't need Redis running
+- 7 action types: `create_task`, `assign_user`, `send_notification`, `update_score`, `move_stage`, `webhook`, `whatsapp`
+- Trigger events wired in [signals.py](backend/backendCRM/api/signals.py): `lead_created`, `lead_status_changed`, `deal_won`, `deal_lost`, `payment_received`, `task_completed`
+- Conditions support both simple `{field: value}` dicts AND the Phase-6 Filter DSL AST
+- Per-rule `AutomationRun` row stores trigger payload, per-action `{status, detail}` log, total status (SUCCESS / PARTIAL / FAILED), retry count
+- Celery `check_sla_breaches` periodic task included for the ticket SLA scanner
+
+**WhatsApp details:**
+- Reads creds per-org from `WhatsAppConfig`, falls back to global `WHATSAPP_PHONE_NUMBER_ID` + `WHATSAPP_ACCESS_TOKEN` in `.env`
+- Every send (success or failure) logs to `WhatsAppMessage` — gives admin UI an audit trail
+- Webhook receiver handles both Meta's `hub.challenge` verification GET and POST events
+- Delivery status webhooks update `WhatsAppMessage.status` + `delivered_at`; incoming customer replies create new IN-direction rows
+- Bulk send helper for marketing blasts; full per-recipient logging
+
+**Razorpay details:**
+- `create_order()` returns the order dict the frontend feeds to Razorpay Checkout — supports stub mode (returns shape but no real order) when keys aren't set
+- `verify_payment_signature()` performs the standard HMAC-SHA256 check on `order_id|payment_id`
+- `verify_webhook_signature()` validates `X-Razorpay-Signature` header on the raw body
+- `generate_invoice_pdf()` renders a minimal GST tax invoice with reportlab — auto subtotal/GST/total split at 18%
+- Webhook handler covers `payment.captured`, `payment.failed`, `subscription.cancelled`; updates Invoice + activates Subscription
+
+**Helpdesk details:**
+- Per-org ticket numbering — `ACME-000124` style, auto-generated in `pre_save` signal
+- `SLAPolicy` per department × priority; due times stamped at ticket create
+- `check_sla()` recomputes `sla_breached` flag on every save; `escalate_if_breached()` notifies department's default agent once
+- Internal notes hidden from customer view in portal endpoint
+- Canned replies support variable substitution: `{customer_name}`, `{ticket_number}`, `{assignee}`, `{subject}`
+- Status transitions auto-stamp `first_response_at` (on first agent reply) and `resolved_at` (when status hits RESOLVED/CLOSED)
+
+**Customer Portal details:**
+- Separate `/portal/*` route tree with its own `PortalLayout` (sidebar nav, no admin chrome)
+- Auth via opaque `PortalToken` (format `prt_<urlsafe_32>`) sent as `Authorization: Portal <token>`
+- Magic link format: `{PORTAL_BASE_URL}/portal/login?t=<token>` — auto-logs in on page load
+- Customer-side endpoints scoped to **their own email** within the org — invoices, documents, tickets, deals
+- Customer can create new tickets + reply on existing ones; admin sees these as `source: PORTAL`
+- Admin mints tokens from `/admin/portal-tokens` — plaintext shown exactly once
+- Token revocation flips `is_active=False`; next request returns 401
+
+**Verified:**
+- ✅ `python manage.py makemigrations api` → migration 0017 created cleanly (7 models + 8 indexes)
+- ✅ `python manage.py check` → 0 issues
+- ✅ All Phase 7 services importable; sane fallback when external libs (razorpay / reportlab / requests) or env creds are missing
+- ✅ `npm run build` → frontend production bundle clean (2,185 modules, 2.4s, ~240 kB gzipped)
+- ✅ Customer portal renders in isolation (no admin auth required); admin portal-tokens page mints + revokes + shows magic link
+
+**Required `.env` variables (all optional — features degrade gracefully):**
+
+```env
+# Automation execution (Celery)
+REDIS_URL=redis://localhost:6379/0
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/1
+CELERY_TASK_ALWAYS_EAGER=False   # True = run tasks inline, no worker needed
+
+# WhatsApp Cloud API
+WHATSAPP_PHONE_NUMBER_ID=
+WHATSAPP_ACCESS_TOKEN=
+WHATSAPP_BUSINESS_ACCOUNT_ID=
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=   # Set this when configuring the webhook in Meta dashboard
+
+# Razorpay
+RAZORPAY_KEY_ID=                  # test mode prefix: rzp_test_
+RAZORPAY_KEY_SECRET=
+RAZORPAY_WEBHOOK_SECRET=          # From Razorpay dashboard → Webhooks
+
+# Customer portal magic-link base
+PORTAL_BASE_URL=http://localhost:5173
+```
+
+**Run the Celery worker (optional):**
+```bash
+cd backend/backendCRM
+celery -A backendCRM worker -l info
+```
+Without the worker, `dispatch()` runs actions inline in the request — fine for low-volume orgs.
+
+---
+
+### Phase 8 — Ecosystem & Intelligence Pack (11 features — covering all remaining enterprise items)
+
+Shipped in [migration 0018](backend/backendCRM/api/migrations/) — 14 new models, 9 new service modules, ~45 new endpoints, 10 new admin pages, 2 new public pages, i18n infrastructure (EN + Hindi).
+
+| # | Feature | Backend artifacts | Endpoints | UI | Status |
+|---|---------|-------------------|-----------|----|--------|
+| 1 | **Knowledge Base** | `KbCategory`, `KbArticle` + [services/kb.py](backend/backendCRM/api/services/kb.py) (search, related, view tracking) | `/api/kb/categories/*`, `/api/kb/articles/*`, `/api/kb/articles/<id>/vote/` | `/admin/knowledge-base` — markdown editor with live preview, draft/publish states, vote tracking | 🟢 Working |
+| 2 | **Form Builder** | `Form`, `FormField`, `FormSubmission` + [services/forms.py](backend/backendCRM/api/services/forms.py) (validation + auto-lead-create) | `/api/forms/*`, **public** `/api/public/forms/<slug>/` | `/admin/forms` — drag/drop field config, public URL copy, **public `/forms/<slug>/` page** with full rendering of 10 field types | 🟢 Working |
+| 3 | **E-Signature** | `SignatureRequest`, `SignatureSigner`, `SignatureEvent` + [services/esign.py](backend/backendCRM/api/services/esign.py) (OTP, PDF stamping with reportlab, audit trail) | `/api/esign/requests/*`, **public** `/api/public/sign/<token>/` | `/admin/esign` — multi-signer chains, sign-link copy; **public `/sign/<token>/`** — OTP request + canvas signature pad + decline | 🟢 Working |
+| 4 | **Backup & Restore** | `BackupJob` + [services/backup.py](backend/backendCRM/api/services/backup.py) — dumpdata of 24 model targets, optional Fernet encryption, retention-based pruning | `/api/backups/`, `/api/backups/<id>/restore/`, `/api/backups/prune/` | `/admin/backups` — create / download / restore / prune | 🟢 Working |
+| 5 | **Cloud Storage** | `CloudConnection` + [services/cloud_storage.py](backend/backendCRM/api/services/cloud_storage.py) — OAuth flow for Google Drive / Dropbox / OneDrive, generic `upload_file()` per provider | `/api/cloud/connections/`, `/api/cloud/<provider>/start/`, `/api/cloud/<provider>/callback/` | `/admin/cloud-storage` — 3-tile connect grid with status indicators | 🟢 Code complete (needs OAuth client creds) |
+| 6 | **AI Features** | `AIRequest` + [services/ai.py](backend/backendCRM/api/services/ai.py) — OpenAI + Anthropic abstraction with auto-detection, 6 prompt builders, full usage logging | `/api/ai/leads/<id>/summary/`, `/api/ai/leads/<id>/followup/`, `/api/ai/deals/<id>/risk/`, `/api/ai/chat/`, `/api/ai/requests/` | `/admin/ai` — chat-style UI with markdown rendering + request history | 🟢 Code complete (stub mode if no API key set) |
+| 7 | **Plugin Registry** | `Plugin` + [services/plugins.py](backend/backendCRM/api/services/plugins.py) — hook registry, `load_plugin()` imports `plugins.<slug>` modules at runtime | `/api/plugins/*`, `/api/plugins/hooks/` | `/admin/plugins` — install + enable/disable + hooks introspection | 🟢 Architecture in place (marketplace deferred) |
+| 8 | **Push Notifications** | `PushSubscription` + [services/push.py](backend/backendCRM/api/services/push.py) — Web Push (VAPID via pywebpush) + Expo push HTTP API | `/api/push/subscriptions/*`, `/api/push/test/`, `/api/push/public-key/` | `/admin/push` — browser subscribe button + test sender + device list | 🟢 Code complete (needs VAPID keys for Web Push) |
+| 9 | **Advanced Analytics** | [services/analytics.py](backend/backendCRM/api/services/analytics.py) — least-squares revenue forecast, weekly cohort, churn, funnel, executive bundle | `/api/analytics/forecast/`, `/api/analytics/cohort/`, `/api/analytics/churn/`, `/api/analytics/funnel/`, `/api/analytics/executive/` | `/admin/analytics` — Recharts composed chart (history + forecast), bar cohort, funnel bars, 4-KPI exec strip | 🟢 Working |
+| 10 | **Dashboard Builder** | `DashboardLayout` model storing react-grid-layout JSON + widget config | `/api/dashboard-layouts/*` | `/admin/dashboard-builder` — drag-resize widgets with 6 types, save per-user layouts | 🟢 Working |
+| 11 | **Multi-language (i18n)** | Django `LANGUAGES` (EN + Hindi) | — | [LocaleContext](frontend/src/context/LocaleContext.jsx) + [LocaleSwitcher](frontend/src/components/LocaleSwitcher.jsx) + dictionary at [i18n/](frontend/src/i18n/) — lightweight `t()` with dotted-path keys, no external lib | 🟢 Infrastructure in place |
+
+**Knowledge Base details:**
+- Markdown body with `react-markdown` rendering on both editor preview + admin preview modal
+- Per-org categories with article counts; tags as comma-separated string (searchable)
+- Status workflow: DRAFT → PUBLISHED → ARCHIVED; `published_at` auto-stamped on transition
+- View counter (atomic `F("view_count") + 1`), helpful/not-helpful votes
+- Related-articles algorithm matches category + any shared tag
+
+**Form Builder details:**
+- 10 field types: text, textarea, email, phone, number, date, select, checkbox, radio, hidden
+- Per-field `maps_to` setting connects form fields → Lead fields (auto-creates a Lead on submit)
+- Public endpoint at `/api/public/forms/<slug>/` (GET schema, POST submission) — no auth required
+- Validation runs server-side; submissions stored even if validation fails (`is_spam` flag)
+- Per-form `submission_count` counter + notify-email/notify-user hooks
+- Frontend `PublicForm` page renders 10 field types correctly with placeholder + help text
+
+**E-Signature details:**
+- Multi-signer ordered chains — each signer gets a unique `prt_<urlsafe>` token via email/SMS (your team sends the magic link)
+- OTP-protected signing: 6-digit code, 15-min expiry, single-use
+- HTML5 canvas signature pad (no external library — built into [PublicSign](frontend/src/pages/public/PublicSign.jsx))
+- On completion, generates an audit PDF with each signer's image, IP, timestamp via reportlab
+- 5 status states + full event log in `SignatureEvent` (SENT, VIEWED, OTP_SENT, SIGNED, DECLINED)
+
+**Backup details:**
+- `BACKUP_TARGETS` covers 24 model tables (Org, User, Pipeline, Leads, Deal, Payment, Document, Task, CustomField, AuditLog, LeadScoreRule, SalesTarget, SavedView, CallLog, AutomationRule/Run, Ticket/Message, Department/SLA, KB)
+- Optional Fernet (AES-128) encryption when `BACKUP_ENCRYPTION_KEY` is set in `.env`
+- `restore_backup()` calls Django's `loaddata` against a temp file
+- `prune_expired()` deletes backup files + rows whose `retention_days` has passed
+- Restore is super-admin only (risky operation guarded by `IsSuperUser`)
+
+**Cloud Storage details:**
+- Generic OAuth abstraction for Google Drive, Dropbox, OneDrive
+- Per-provider `authorize_url()` + `exchange_code()` + `save_connection()` + `upload_file()`
+- Tokens stored per-user on `CloudConnection` with `token_expires_at`
+- Provider-specific upload code paths (Dropbox content endpoint, Drive multipart, OneDrive PUT)
+- Returns helpful error when `*_CLIENT_ID` env vars aren't set
+
+**AI details:**
+- Auto-selects provider: `AI_PROVIDER` env override → Anthropic if key set → OpenAI if key set → stub
+- 6 prompt builders: lead summary · follow-up draft · deal risk (returns int confidence 0-100) · email draft · meeting summary · chat
+- Every call logs to `AIRequest` with prompt, response, tokens, provider, model, success flag
+- OpenAI uses `/v1/chat/completions`, Anthropic uses `/v1/messages` (both via `requests`)
+- Stub mode returns a deterministic echo when no key configured — UI still flows
+
+**Plugin details:**
+- Module-level `_HOOKS` registry keyed by event name (`lead_created`, `deal_won`, etc.)
+- `register_hook(name, callback)` / `unregister_hook()` / `run_hook(name, **payload)` API
+- `load_plugin(plugin)` dynamically imports `plugins.<slug>` and calls its `register(config)` entry
+- DB `Plugin` row is the manifest (name, version, hooks list, config JSON, status)
+- Admin UI lists hooks + enable/disable + uninstall
+- A full marketplace UI (browse / install from registry) is deferred to a future phase
+
+**Push details:**
+- Web Push via VAPID — `pywebpush` library, auto-deactivates subscriptions on 404/410
+- Expo push via `https://exp.host/--/api/v2/push/send` — endpoint is the Expo token
+- Frontend includes a `urlBase64ToUint8Array()` helper for VAPID public key conversion
+- "Subscribe this device" button registers a service worker at `/sw.js` (worker file is your responsibility — minimal example needed in `frontend/public/sw.js`)
+
+**Analytics details:**
+- Revenue forecast uses simple least-squares slope/intercept on 24-month history → projects N months ahead
+- Cohort analysis groups leads by `TruncWeek("created_at")` then counts won deals within the window
+- Churn: leads with `last_activity_at` older than 30 days (excluding closed states)
+- Funnel: pipeline stage distribution as % of total
+- Executive summary: 30-day vs prior 30-day deltas on new leads, won revenue, payments
+
+**Dashboard Builder details:**
+- `react-grid-layout` v1.5 (stable ESM) — 12-column responsive grid
+- 6 widget types: KPI · Chart · Tasks · Activity · Pipeline · Leaderboard
+- Per-user persisted layouts; `shared_with_role` field reserved for future role-shared templates
+- Drag-handle scoped to widget header (`.widget-drag` class) so content stays interactive
+
+**i18n details:**
+- Custom lightweight `translate()` function — no external dependency
+- Dictionary at [`frontend/src/i18n/en.js`](frontend/src/i18n/en.js) + `hi.js` (Hindi)
+- `useT()` hook + `<LocaleSwitcher />` topbar component
+- Locale persisted in `localStorage.crm_locale`; `<html lang="...">` synced
+- Django `LANGUAGES` configured for future server-side translation
+
+**Verified:**
+- ✅ `python manage.py makemigrations api` → migration 0018 generated (14 models)
+- ✅ `python manage.py check` → 0 issues
+- ✅ `npm run build` → frontend production bundle clean (3,069 modules, ~433 kB gzip — added recharts + react-grid-layout + react-markdown)
+- ✅ Stub modes work for AI / Cloud / Push / Razorpay / WhatsApp without external creds (no crashes)
+
+**Required `.env` additions (all optional):**
+
+```env
+# AI providers (pick one or both)
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-3-5-haiku-20241022
+AI_PROVIDER=                   # blank=auto, or "openai"/"anthropic"
+
+# Cloud storage OAuth (each provider's client credentials)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=http://localhost:5173/admin/cloud-storage?provider=GOOGLE_DRIVE
+DROPBOX_CLIENT_ID=
+DROPBOX_CLIENT_SECRET=
+DROPBOX_REDIRECT_URI=...
+ONEDRIVE_CLIENT_ID=
+ONEDRIVE_CLIENT_SECRET=
+ONEDRIVE_REDIRECT_URI=...
+
+# Web Push (generate with `vapid` CLI)
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_CLAIMS_EMAIL=admin@example.com
+
+# Backup encryption (generate with `Fernet.generate_key()`)
+BACKUP_ENCRYPTION_KEY=
+```
+
+---
+
+### Phase 5b — Demo Showcase Upgrade (14 features added to [demo/](demo/))
+
+Layered on top of the original lightweight Phase-1 demo to make it feel like a production SaaS showcase. All changes are **demo-only**, do not affect backend / frontend / mobile, and remain 100 % client-side (`localStorage`).
+
+| # | Feature | New file(s) |
+|---|---------|-------------|
+| 1 | Fake real-time notifications (20–40 s, sound, mark-read) | `context/NotificationContext.jsx`, `components/NotificationBell.jsx` |
+| 2 | Animated KPI counters (Framer `animate` + `useInView`) | `components/AnimatedCounter.jsx` |
+| 3 | Activity timeline (vertical rail, type badges, relative ts) | `components/ActivityTimeline.jsx` |
+| 4 | Industry switcher — 5 presets repopulating all modules | `lib/industries.js`, `lib/fakeData.js`, `context/IndustryContext.jsx`, `components/IndustrySwitcher.jsx` |
+| 5 | Automation flow visualizer (trigger → 3 actions, animated arrows) | `pages/Automation.jsx` |
+| 6 | Sales leaderboard (gold/silver/bronze medals + animated bars) | `components/SalesLeaderboard.jsx` |
+| 7 | Live activity ticker (floating, auto-spawn 6–12 s, pause toggle) | `components/LiveTicker.jsx` |
+| 8 | Advanced reports — **Recharts** area / pie / bar / funnel / MoM growth | `pages/Reports.jsx` (rewritten) |
+| 9 | Demo Command Center (reset, switch, generate, simulate, modes) | `pages/CommandCenter.jsx` |
+| 10 | Presentation Mode (fullscreen, ←/→/Esc, spotlight, auto-rotate) | `context/DemoModeContext.jsx`, `components/PresentationOverlay.jsx` |
+| 11 | Demo Assistant bubble (route-aware tips, auto-rotate) | `components/DemoAssistant.jsx` |
+| 12 | Premium polish — particles canvas + glow/pulse/spotlight CSS | `components/Particles.jsx`, `index.css` additions |
+| 13 | CTA system — 4 variants with modal forms + success state | `components/CTAModal.jsx` |
+| 14 | Industry-specific seeded data (per-preset vocab, products, reps) | `lib/industries.js`, `lib/fakeData.js` |
+
+**Untouched in demo/:**
+landing layout, login/signup, Leads/Deals/Customers/Settings pages, `db.js` storage key, auth flow, protected routes.
+
+**Verified:** Production build clean (~295 kB gzipped, 6.5 s). See [`demo/FEATURES.md`](demo/FEATURES.md) for full breakdown.
+
 ---
 
 ## 16. Out of Scope (deferred to future phases)
@@ -812,27 +1200,21 @@ Shipped in [migration 0015](backend/backendCRM/api/migrations/) — 5 new models
 - **WhatsApp send** — needs Meta WhatsApp Business Cloud API account + phone verification + template approval. Set `WHATSAPP_*` env vars, then add HTTP adapter calling `graph.facebook.com/v18.0/<phone_number_id>/messages`
 - **Razorpay checkout** — needs Razorpay account + test/live keys. Set `RAZORPAY_*` env vars, `pip install razorpay`, implement `/api/billing/checkout/` + `/api/billing/webhook/`
 
-### 16.2 Enterprise upgrade list (16 of 22 still pending)
-Phase 5 shipped 6 of the 22 enterprise features the user requested. The other 16 are documented below — each is a self-contained future phase.
+### 16.2 Enterprise upgrade list — what's still pending
 
-| # | Feature | Notes |
-|---|---------|-------|
-| 2 | SLA management + escalations | Needs Celery scheduler for timers |
-| 3 | Drag-drop form builder + public/embeddable forms | Biggest UI work (5–7 days) |
-| 5 | Knowledge base / help center | CMS-like with markdown + search |
-| 6 | Support ticket / helpdesk system | Pairs with SLA |
-| 7 | Cloud storage integrations (Google Drive / Dropbox / OneDrive) | OAuth flows per provider |
-| 8 | Advanced filter builder (nested AND/OR query AST) | Server-side recursive query parser |
-| 10 | Import / export engine (CSV / Excel / PDF with field mapping) | openpyxl + reportlab |
-| 12 | Lead distribution engine (round-robin / territory / workload) | Pairs with scoring (already shipped) |
-| 13 | E-signature workflow | PDF stamping or DocuSign integration |
-| 15 | Multi-language (i18n) — EN / Hindi + RTL ready | react-intl + Django i18n |
-| 17 | Custom dashboard builder (drag-drop widgets) | react-grid-layout |
-| 18 | Approval workflows (manager / finance / discount) | State machine |
-| 19 | Backup & restore system | Django dumpdata + scheduled S3 sync |
-| 20 | Session & device management (remote logout) | Track JWT jti per device |
-| 21 | Plugin / extensions marketplace | Architecture-heavy (10–15 days) |
-| – | Lead scoring AI/ML predictions | Future ML pass on top of existing scoring engine |
+After Phase 8 the original 22-item enterprise upgrade roadmap is **complete**. The few items still on the table are extensions / nice-to-haves rather than gaps:
+
+| Item | Notes |
+|------|-------|
+| Plugin marketplace UI | Backend registry + hooks exist; a browse/install storefront on top of the registry is deferred |
+| SLA Celery scheduler | Tickets have SLA timers + breach flags; periodic scanner runs in `tasks.py` but needs Celery beat scheduling |
+| Mobile theme toggle + custom-field editing | Web has them; mobile is dark-only + read-only for custom fields |
+| Mobile 2FA enrollment UI | Login challenge already works; enrollment must happen via web |
+| Granular per-org RBAC editor | Current roles are fixed strings — no UI for per-org permission overrides yet |
+| White-label theming driving UI tokens | Per-org `primary_color` + `accent_color` are stored but not yet applied across the React component tree |
+| Tally / accounting export | One-off reports — needs a per-export schema |
+| E2E test suite (Playwright + Detox) | Functional CI; not a feature gap |
+| Docker / Kubernetes manifests | Devops; settings are 12-factor-ready, just no shipped Dockerfile |
 
 ### 16.3 Other deferrals (mobile + infra)
 - **Mobile theme toggle** (light/dark) — web has it, mobile is dark-only

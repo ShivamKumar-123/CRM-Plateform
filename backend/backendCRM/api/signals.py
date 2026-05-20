@@ -175,6 +175,9 @@ def lead_post_save(sender, instance, created, **kwargs):
     if created:
         _log("CREATE", instance, organization=instance.organization)
         apply_score_event(instance, "lead_created")
+        # Auto-assign via DistributionRule when no assignee was provided.
+        if not instance.assigned_to_id:
+            _auto_assign_lead(instance)
         # Notification: lead assigned to someone on creation
         if instance.assigned_to_id:
             _notify(
@@ -359,3 +362,104 @@ def on_login(sender, request, user, **kwargs):
 def on_logout(sender, request, user, **kwargs):
     if user:
         _log("LOGOUT", user, user=user, organization=getattr(user, "organization", None))
+
+
+# ─────────────────────────────────────────────────────────────────
+# Phase 6 — Lead auto-distribution
+# ─────────────────────────────────────────────────────────────────
+
+def _auto_assign_lead(lead):
+    """Apply the first matching DistributionRule. Logs to AssignmentLog.
+
+    Wrapped in try/except so distribution problems never break lead creation.
+    """
+    try:
+        from .services.distribution import find_assignee
+        from .models import AssignmentLog as _AssignmentLog
+
+        user, rule, reason = find_assignee(lead)
+        if user is None:
+            return
+
+        # Use update() to bypass signals so we don't recurse into this hook.
+        Leads.objects.filter(pk=lead.pk).update(assigned_to=user)
+        lead.assigned_to = user  # keep the in-memory instance consistent
+
+        _AssignmentLog.objects.create(
+            organization=lead.organization,
+            lead=lead,
+            rule=rule,
+            assigned_to=user,
+            strategy=rule.strategy if rule else "",
+            reason=reason,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+# ─────────────────────────────────────────────────────────────────
+# Phase 7 — Automation execution dispatcher
+# ─────────────────────────────────────────────────────────────────
+
+
+def _automation_dispatch(event, instance):
+    """Best-effort dispatcher — never raises into the host signal handler."""
+    try:
+        from .services.automation_engine import dispatch
+        dispatch(event, instance)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+@receiver(post_save, sender=Leads)
+def lead_automation_dispatch(sender, instance, created, **kwargs):
+    if created:
+        _automation_dispatch("lead_created", instance)
+    else:
+        old = getattr(instance, "_pre_save_snapshot", None) or {}
+        if "status" in (old or {}):
+            _automation_dispatch("lead_status_changed", instance)
+
+
+@receiver(post_save, sender=Deal)
+def deal_automation_dispatch(sender, instance, created, **kwargs):
+    if instance.status == "WON":
+        _automation_dispatch("deal_won", instance)
+    elif instance.status == "LOST":
+        _automation_dispatch("deal_lost", instance)
+
+
+@receiver(post_save, sender=Payment)
+def payment_automation_dispatch(sender, instance, created, **kwargs):
+    if created:
+        _automation_dispatch("payment_received", instance)
+
+
+@receiver(post_save, sender=Task)
+def task_automation_dispatch(sender, instance, created, **kwargs):
+    if not created and instance.status == "COMPLETED":
+        _automation_dispatch("task_completed", instance)
+
+
+# ─────────────────────────────────────────────────────────────────
+# Phase 7 — Ticket housekeeping
+# ─────────────────────────────────────────────────────────────────
+
+
+try:
+    from .models import Ticket as _Ticket  # may not exist on first import during migrate
+
+    @receiver(pre_save, sender=_Ticket)
+    def ticket_pre_save(sender, instance, **kwargs):
+        from .services.helpdesk import next_ticket_number, attach_sla, auto_assign
+        if not instance.number:
+            instance.number = next_ticket_number(instance.organization)
+        if instance._state.adding:
+            if instance.organization_id:
+                attach_sla(instance)
+                auto_assign(instance)
+        # SLA breach recheck on every save
+        from .services.helpdesk import check_sla
+        check_sla(instance)
+except ImportError:
+    pass

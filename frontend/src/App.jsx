@@ -43,6 +43,45 @@ import AdminSalesTargets from './pages/admin/AdminSalesTargets.jsx'
 import AdminCallLogs from './pages/admin/AdminCallLogs.jsx'
 import AdminSavedViews from './pages/admin/AdminSavedViews.jsx'
 
+// Phase 6 — Enterprise Operations Pack
+import AdminFilters from './pages/admin/AdminFilters.jsx'
+import AdminImportExport from './pages/admin/AdminImportExport.jsx'
+import AdminDistribution from './pages/admin/AdminDistribution.jsx'
+import AdminSessions from './pages/admin/AdminSessions.jsx'
+import AdminApprovals from './pages/admin/AdminApprovals.jsx'
+import AdminApiDocs from './pages/admin/AdminApiDocs.jsx'
+
+// Phase 7 — Enterprise Integrations Pack
+import AdminHelpdesk from './pages/admin/AdminHelpdesk.jsx'
+import AdminPortalTokens from './pages/admin/AdminPortalTokens.jsx'
+
+// Customer portal (separate auth)
+import PortalLayout from './pages/portal/PortalLayout.jsx'
+import PortalLogin from './pages/portal/PortalLogin.jsx'
+import PortalDashboard from './pages/portal/PortalDashboard.jsx'
+import PortalTickets from './pages/portal/PortalTickets.jsx'
+import PortalInvoices from './pages/portal/PortalInvoices.jsx'
+import PortalDocuments from './pages/portal/PortalDocuments.jsx'
+
+// Phase 8 — Ecosystem & Intelligence Pack
+import AdminKnowledgeBase from './pages/admin/AdminKnowledgeBase.jsx'
+import AdminForms from './pages/admin/AdminForms.jsx'
+import AdminESignature from './pages/admin/AdminESignature.jsx'
+import AdminAnalytics from './pages/admin/AdminAnalytics.jsx'
+import AdminAI from './pages/admin/AdminAI.jsx'
+import AdminBackups from './pages/admin/AdminBackups.jsx'
+import AdminCloudStorage from './pages/admin/AdminCloudStorage.jsx'
+import AdminPlugins from './pages/admin/AdminPlugins.jsx'
+import AdminPush from './pages/admin/AdminPush.jsx'
+import AdminDashboardBuilder from './pages/admin/AdminDashboardBuilder.jsx'
+
+// Public pages
+import PublicForm from './pages/public/PublicForm.jsx'
+import PublicSign from './pages/public/PublicSign.jsx'
+
+// i18n
+import { LocaleProvider } from './context/LocaleContext.jsx'
+
 const router = createBrowserRouter(
   createRoutesFromElements(
     <>
@@ -101,20 +140,60 @@ const router = createBrowserRouter(
         <Route path='sales-targets' element={<AdminSalesTargets />} />
         <Route path='call-logs' element={<AdminCallLogs />} />
         <Route path='saved-views' element={<AdminSavedViews />} />
+
+        {/* Phase 6 — Enterprise Operations Pack */}
+        <Route path='filters' element={<AdminFilters />} />
+        <Route path='import-export' element={<AdminImportExport />} />
+        <Route path='distribution' element={<AdminDistribution />} />
+        <Route path='sessions' element={<AdminSessions />} />
+        <Route path='approvals' element={<AdminApprovals />} />
+        <Route path='api-docs' element={<AdminApiDocs />} />
+
+        {/* Phase 7 — Enterprise Integrations Pack */}
+        <Route path='helpdesk' element={<AdminHelpdesk />} />
+        <Route path='portal-tokens' element={<AdminPortalTokens />} />
+
+        {/* Phase 8 — Ecosystem & Intelligence Pack */}
+        <Route path='knowledge-base' element={<AdminKnowledgeBase />} />
+        <Route path='forms' element={<AdminForms />} />
+        <Route path='esign' element={<AdminESignature />} />
+        <Route path='analytics' element={<AdminAnalytics />} />
+        <Route path='ai' element={<AdminAI />} />
+        <Route path='backups' element={<AdminBackups />} />
+        <Route path='cloud-storage' element={<AdminCloudStorage />} />
+        <Route path='plugins' element={<AdminPlugins />} />
+        <Route path='push' element={<AdminPush />} />
+        <Route path='dashboard-builder' element={<AdminDashboardBuilder />} />
+
         <Route path='reports' element={<AdminReports />} />
         <Route path='system' element={<AdminSystem />} />
       </Route>
+
+      {/* Customer portal — separate auth (Portal token) */}
+      <Route path='/portal/login' element={<PortalLogin />} />
+      <Route path='/portal' element={<PortalLayout />}>
+        <Route index element={<PortalDashboard />} />
+        <Route path='tickets' element={<PortalTickets />} />
+        <Route path='invoices' element={<PortalInvoices />} />
+        <Route path='documents' element={<PortalDocuments />} />
+      </Route>
+
+      {/* Public — no auth */}
+      <Route path='/forms/:slug' element={<PublicForm />} />
+      <Route path='/sign/:token' element={<PublicSign />} />
     </>
   )
 )
 
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <RouterProvider router={router} />
-      </AuthProvider>
-    </ThemeProvider>
+    <LocaleProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </ThemeProvider>
+    </LocaleProvider>
   )
 }
 

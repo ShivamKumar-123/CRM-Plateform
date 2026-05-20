@@ -1,33 +1,84 @@
-# Python
+# ─── Python / Django ──────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
 
-# Virtual Environment
+# Virtual environments
 .venv/
 venv/
 env/
+ENV/
 
-# Environment variables
-backend/backendCRM/.env
-frontend/.env
-frontend/.env.local
-frontend/.env.*.local
-
-# SQLite
+# Django runtime
 backend/backendCRM/db.sqlite3
-
-# Node
-frontend/node_modules/
-
-# Build
-frontend/dist/
-frontend/build/
 backend/backendCRM/staticfiles/
 backend/backendCRM/media/
+backend/backendCRM/imports/
+backend/backendCRM/backups/
+backend/backendCRM/esign/
 
-# Logs
+# ─── Node / JS — all node_modules anywhere ───────────────────
+**/node_modules/
+node_modules/
+
+# ─── Build outputs — every workspace ─────────────────────────
+**/dist/
+**/build/
+**/.vite/
+**/.next/
+**/.turbo/
+**/.parcel-cache/
+
+# ─── Mobile / Expo ───────────────────────────────────────────
+mobile/.expo/
+mobile/.expo-shared/
+mobile/web-build/
+mobile/ios/
+mobile/android/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# ─── Environment files (all workspaces) ──────────────────────
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+# but keep example templates checked in
+!**/.env.example
+!**/.env.production.example
+
+# ─── Logs ────────────────────────────────────────────────────
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
 
-# VS Code
+# ─── Editor / IDE ────────────────────────────────────────────
 .vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─── OS / temp ───────────────────────────────────────────────
+*.tmp
+*.bak
+*.orig
+.cache/
+
+# ─── Coverage / test artefacts ───────────────────────────────
+coverage/
+.nyc_output/
+htmlcov/
+.coverage

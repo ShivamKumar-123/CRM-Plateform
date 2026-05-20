@@ -3,52 +3,106 @@ import { motion } from "framer-motion";
 import {
   Users, Briefcase, BarChart3, ShieldCheck, FileCheck2, IndianRupee,
   Building2, Bell, Lock, Smartphone, GitBranch, Layers, Target, Trophy,
-  Phone, Bookmark, Sliders, Zap, Sliders as SlidersIcon, ArrowRight,
+  Phone, Bookmark, Sliders, Zap, ArrowRight,
   Check, Workflow, HeartHandshake, Rocket,
   MessageSquare, Mail, Database, FileText, Cloud, Activity,
+  Sparkles, Headphones, KeyRound, BookOpen, FileInput, PenTool,
+  Filter, FileSpreadsheet, Users2, Monitor, Globe, Puzzle,
+  LayoutDashboard, Bell as BellIcon, TrendingUp, Cpu,
 } from "lucide-react";
 import { PageHero, SectionHeading, FeatureCard, CTABanner } from "./_components.jsx";
 
-const allFeatures = [
-  { icon: Users,        title: "Lead Pipeline",        body: "Capture from any source — website forms, WhatsApp, email, events, dealer network. All flow into one pipeline.", tint: "from-yellow-400 to-amber-500" },
-  { icon: GitBranch,    title: "Drag-Drop Pipelines",  body: "Configure stages per module with real @dnd-kit drag handles. Won/lost flags + per-stage colors.", tint: "from-sky-400 to-blue-500" },
-  { icon: Layers,       title: "Custom Fields",        body: "11 field types — text, number, date, select, multi-select, checkbox, email, phone, URL, textarea, datetime. Per module, per org.", tint: "from-violet-400 to-purple-500" },
-  { icon: Target,       title: "Lead Scoring",         body: "Auto-classify HOT (≥70) / WARM (40-69) / COLD (<40) based on activity events. 13 default rules. Full audit trail per lead.", tint: "from-pink-400 to-rose-500" },
-  { icon: Trophy,       title: "Sales Targets",        body: "Monthly/quarterly/yearly targets with auto-computed achievement + commission. Live leaderboard.", tint: "from-emerald-400 to-green-500" },
-  { icon: Briefcase,    title: "Deal Management",      body: "Track Open / Won / Cancelled. Deal value, cost price, server-computed net profit, expected close date.", tint: "from-orange-400 to-red-500" },
-  { icon: BarChart3,    title: "Real-time Analytics",  body: "Live dashboards for revenue, win rate, top performers, monthly trends. Refresh once, see truth.", tint: "from-amber-400 to-orange-500" },
-  { icon: FileCheck2,   title: "KYC & Documents",      body: "Aadhaar, PAN, contracts, invoices — collect, store, attach to every customer record. PDF/JPG/PNG up to 5MB.", tint: "from-fuchsia-400 to-pink-500" },
-  { icon: IndianRupee,  title: "Payment Tracking",     body: "Booking → Partial → Full. Cash, cheque, UPI, card, online, finance — every transaction logged with proof.", tint: "from-cyan-400 to-blue-500" },
-  { icon: Phone,        title: "Call Logs",            body: "Log calls with outcome (Connected / Voicemail / Converted / Callback), duration, notes, next-action follow-up.", tint: "from-yellow-400 to-amber-500" },
-  { icon: Building2,    title: "Multi-Tenant SaaS",    body: "Each organization gets isolated data, users, pipelines, branding and quotas. Run one platform, serve many businesses.", tint: "from-sky-400 to-blue-500" },
-  { icon: ShieldCheck,  title: "Role-Based Access",    body: "8 built-in roles — Owner, Admin, Manager, Team Lead, Sales, Support, Employee, Viewer. Enforced server-side.", tint: "from-violet-400 to-purple-500" },
-  { icon: Bell,         title: "Live Notifications",   body: "Bell with unread badge polls every 60s. Auto-emit on lead-assign, deal-won, payment-received, task-due.", tint: "from-pink-400 to-rose-500" },
-  { icon: Activity,     title: "Audit Logs",           body: "Every CREATE / UPDATE / DELETE / LOGIN logged with field-level diffs, IP, user-agent. Compliance-ready.", tint: "from-emerald-400 to-green-500" },
-  { icon: Lock,         title: "TOTP 2FA",             body: "Real `pyotp` enrollment with QR codes + 8 backup codes. Enforced on login — works on web and mobile.", tint: "from-orange-400 to-red-500" },
-  { icon: Smartphone,   title: "Native Mobile App",    body: "iOS + Android via Expo. Field teams update leads from the customer's location with offline-ready architecture.", tint: "from-amber-400 to-orange-500" },
-  { icon: Sliders,      title: "Industry Templates",   body: "7 one-click presets — Solar · Real Estate · Healthcare · Insurance · Logistics · Education · General. Each seeds pipelines + custom fields + scoring rules.", tint: "from-fuchsia-400 to-pink-500" },
-  { icon: Bookmark,     title: "Saved Views",          body: "Save your filter+sort combos as named views. Share with team or keep private. Set defaults per module.", tint: "from-cyan-400 to-blue-500" },
+const groupedFeatures = [
+  {
+    label: "Sales & Pipeline",
+    accentColor: "from-yellow-300 to-amber-500",
+    eyebrowColor: "text-yellow-400",
+    items: [
+      { icon: Users,       title: "Lead Pipeline",         body: "Capture from website, WhatsApp, email, events, public web forms. All flow into one pipeline with source attribution.", tint: "from-yellow-400 to-amber-500" },
+      { icon: GitBranch,   title: "Drag-Drop Pipelines",   body: "Configure stages per module with real @dnd-kit drag handles. Per-stage colors + won/lost flags.", tint: "from-sky-400 to-blue-500" },
+      { icon: Layers,      title: "Custom Fields",         body: "11 field types per module per org — text, number, date, select, multi-select, checkbox, email, phone, URL, textarea, datetime.", tint: "from-violet-400 to-purple-500" },
+      { icon: Target,      title: "Lead Scoring",          body: "Auto-classify HOT (≥70) · WARM (40-69) · COLD (<40) on activity events. 13 default rules + full audit trail per lead.", tint: "from-pink-400 to-rose-500" },
+      { icon: Users2,      title: "Lead Distribution",     body: "5 auto-assignment strategies — round robin · least loaded · territory · weighted · skill-based. Match-filter rules.", tint: "from-emerald-400 to-green-500" },
+      { icon: Briefcase,   title: "Deal Management",       body: "Track Open / Won / Cancelled with deal value, cost price, server-computed profit, expected close date.", tint: "from-orange-400 to-red-500" },
+      { icon: Trophy,      title: "Sales Targets",         body: "Monthly/quarterly/yearly targets with auto-computed achievement + commission. Live leaderboard.", tint: "from-amber-400 to-yellow-500" },
+      { icon: Phone,       title: "Call Logs",             body: "Log calls with outcome (Connected · Voicemail · Converted · Callback), duration, notes, next-action follow-up.", tint: "from-cyan-400 to-blue-500" },
+      { icon: Filter,      title: "Advanced Filter Builder", body: "Visual AND / OR / NOT tree with 13 operators — contains · between · in · is_empty and more. Save as Views.", tint: "from-fuchsia-400 to-pink-500" },
+      { icon: Bookmark,    title: "Saved Views",           body: "Save filter + sort combinations as named views. Share with team or keep private. Per-module defaults.", tint: "from-violet-400 to-purple-500" },
+    ],
+  },
+  {
+    label: "Customer Service & Communication",
+    accentColor: "from-cyan-300 to-blue-500",
+    eyebrowColor: "text-cyan-400",
+    items: [
+      { icon: Headphones,  title: "Helpdesk / Ticketing",  body: "Tickets with SLA timers, escalations, departments, agent assignment, internal notes + customer replies.", tint: "from-yellow-400 to-amber-500" },
+      { icon: KeyRound,    title: "Customer Portal",       body: "Magic-link auth · customers self-serve tickets, invoices, documents, deals. No password needed.", tint: "from-sky-400 to-blue-500" },
+      { icon: BookOpen,    title: "Knowledge Base",        body: "Markdown article CMS with categories, tags, search, voting, view tracking, related-article suggestions.", tint: "from-emerald-400 to-green-500" },
+      { icon: FileInput,   title: "Public Form Builder",   body: "10 field types · drag-drop config · auto-creates leads on submit · public /forms/<slug>/ URLs for any site.", tint: "from-pink-400 to-rose-500" },
+      { icon: MessageSquare, title: "Real WhatsApp Cloud", body: "Meta Graph v18 send · template + media · delivery status webhooks · incoming reply log · bulk send.", tint: "from-violet-400 to-purple-500" },
+      { icon: Bell,        title: "Live Notifications",    body: "Bell with unread badge polls every 60s. Auto-emit on lead-assign, deal-won, payment, task-due, SLA breach.", tint: "from-orange-400 to-red-500" },
+      { icon: BellIcon,    title: "Push Notifications",    body: "Web Push (VAPID) + Expo / mobile push. Deep links, multi-device, auto-deactivate on subscription death.", tint: "from-amber-400 to-orange-500" },
+      { icon: Mail,        title: "Email & SMTP",          body: "Per-org SMTP, transactional + marketing templates, variable interpolation, delivery logs.", tint: "from-cyan-400 to-blue-500" },
+    ],
+  },
+  {
+    label: "Intelligence & Automation",
+    accentColor: "from-fuchsia-300 to-purple-500",
+    eyebrowColor: "text-fuchsia-400",
+    items: [
+      { icon: Sparkles,    title: "AI CRM Features",       body: "Lead summaries · follow-up drafts · deal-risk scoring · email draft · meeting summary. OpenAI + Anthropic abstraction.", tint: "from-yellow-400 to-amber-500" },
+      { icon: Workflow,    title: "Automation Engine",     body: "Trigger → action chains with 7 action types (task · assign · notify · score · stage move · webhook · WhatsApp). Celery-ready.", tint: "from-pink-400 to-rose-500" },
+      { icon: TrendingUp,  title: "Advanced Analytics",    body: "Least-squares revenue forecast · weekly cohort analysis · churn detection · funnel intelligence · executive summary.", tint: "from-emerald-400 to-green-500" },
+      { icon: BarChart3,   title: "Real-time Dashboards",  body: "Live KPIs for revenue, win rate, top performers, monthly trends — auto-refreshed on every refresh.", tint: "from-violet-400 to-purple-500" },
+      { icon: LayoutDashboard, title: "Dashboard Builder", body: "Drag-resize widgets with react-grid-layout. 6 widget types. Save per-user or role-shared layouts.", tint: "from-orange-400 to-red-500" },
+      { icon: PenTool,     title: "E-Signature",           body: "Multi-signer ordered chains · 6-digit OTP verification · canvas signature pad · audit-stamped PDF.", tint: "from-fuchsia-400 to-pink-500" },
+      { icon: Sliders,     title: "Industry Templates",    body: "7 one-click presets — Solar · Real Estate · Healthcare · Insurance · Logistics · Education · General.", tint: "from-cyan-400 to-blue-500" },
+      { icon: Cpu,         title: "Approval Workflows",    body: "Multi-step approval chains for discounts, contracts, leave, refunds. Inbox + requested + all tabs.", tint: "from-amber-400 to-orange-500" },
+    ],
+  },
+  {
+    label: "Platform & Infrastructure",
+    accentColor: "from-emerald-300 to-green-500",
+    eyebrowColor: "text-emerald-400",
+    items: [
+      { icon: Building2,   title: "Multi-Tenant SaaS",     body: "Each organization gets isolated data, users, pipelines, branding and quotas. Server-enforced isolation.", tint: "from-yellow-400 to-amber-500" },
+      { icon: ShieldCheck, title: "Role-Based Access",     body: "8 built-in roles — Owner, Admin, Manager, Team Lead, Sales, Support, Employee, Viewer. Enforced server-side.", tint: "from-sky-400 to-blue-500" },
+      { icon: Lock,        title: "TOTP 2FA",              body: "Real pyotp enrollment with QR codes + 8 backup codes. Enforced on login — works on web and mobile.", tint: "from-violet-400 to-purple-500" },
+      { icon: Activity,    title: "Audit Logs",            body: "Every CREATE / UPDATE / DELETE / LOGIN logged with field-level diffs, IP, user-agent. Compliance-ready.", tint: "from-emerald-400 to-green-500" },
+      { icon: Monitor,     title: "Sessions & Devices",    body: "List + revoke active devices · suspicious login detection · 'sign out all' on stolen-device · JWT blacklist.", tint: "from-orange-400 to-red-500" },
+      { icon: FileSpreadsheet, title: "Import / Export",   body: "CSV + Excel with field mapping, dry-run preview, validation log, one-click rollback of any import job.", tint: "from-amber-400 to-orange-500" },
+      { icon: Database,    title: "Backup & Restore",      body: "Scheduled snapshots · optional Fernet (AES) encryption · retention pruning · one-click restore.", tint: "from-pink-400 to-rose-500" },
+      { icon: Cloud,       title: "Cloud Storage OAuth",   body: "Google Drive · Dropbox · OneDrive integrations with one-click connect + per-user tokens.", tint: "from-fuchsia-400 to-pink-500" },
+      { icon: IndianRupee, title: "Razorpay Billing",      body: "Real checkout · webhook signature verify · GST invoice PDF · subscription auto-renewals.", tint: "from-cyan-400 to-blue-500" },
+      { icon: BookOpen,    title: "Public API + Docs",     body: "Swagger UI · ReDoc · raw OpenAPI schema · per-org API keys with module-scoped permissions.", tint: "from-yellow-400 to-amber-500" },
+      { icon: Puzzle,      title: "Plugin System",         body: "Drop modules in plugins/<slug>.py · register against named hooks · dynamic load/unload per org.", tint: "from-violet-400 to-purple-500" },
+      { icon: Globe,       title: "Multi-language (i18n)", body: "English + Hindi out of the box. Lightweight dict-based translation with locale persistence.", tint: "from-emerald-400 to-green-500" },
+      { icon: Smartphone,  title: "Native Mobile App",     body: "iOS + Android via Expo. Field teams update leads from the customer's location with offline-ready architecture.", tint: "from-orange-400 to-red-500" },
+      { icon: FileCheck2,  title: "KYC & Documents",       body: "Aadhaar, PAN, contracts, invoices — collect, store, attach to every customer record. PDF/JPG/PNG up to 5MB.", tint: "from-amber-400 to-orange-500" },
+      { icon: IndianRupee, title: "Payment Tracking",      body: "Booking → Partial → Full. Cash, cheque, UPI, card, online, finance — every transaction logged with proof.", tint: "from-pink-400 to-rose-500" },
+    ],
+  },
 ];
 
 const steps = [
-  { icon: Target,         title: "Capture", body: "Lead arrives via website form, WhatsApp ping, or phone call — dropped into the pipeline with source attribution + auto-scored." },
-  { icon: Workflow,       title: "Qualify", body: "Assign to sales, schedule site visit, generate quotation. Status moves through configurable stages. Score auto-bumps on each activity." },
-  { icon: HeartHandshake, title: "Close",   body: "Deal marked Won. Booking payment recorded. KYC documents uploaded. Customer signs. Audit log captures everything." },
-  { icon: Rocket,         title: "Retain",  body: "Track installation milestones, log final payment, surface customer for referrals & service calls. Notifications keep team aligned." },
+  { icon: Target,         title: "Capture", body: "Lead arrives via website form, WhatsApp ping, or phone call — auto-scored and dropped into your pipeline with source attribution." },
+  { icon: Workflow,       title: "Qualify", body: "Auto-assigned to the right rep, AI drafts the follow-up, status moves through configurable stages with audit-log diffs." },
+  { icon: HeartHandshake, title: "Close",   body: "Deal marked Won. Razorpay checkout. KYC + e-signed contract attached. Customer portal opens automatically." },
+  { icon: Rocket,         title: "Retain",  body: "Tickets, knowledge base, scheduled backups, AI follow-ups — the same platform keeps customers engaged for years." },
 ];
 
 const integrations = [
   { icon: MessageSquare, name: "WhatsApp" },
-  { icon: Mail,          name: "Gmail" },
+  { icon: Mail,          name: "Gmail / SMTP" },
   { icon: IndianRupee,   name: "Razorpay" },
-  { icon: Cloud,         name: "Drive" },
-  { icon: Database,      name: "Excel" },
-  { icon: Phone,         name: "Exotel" },
-  { icon: Activity,      name: "Slack" },
-  { icon: GitBranch,     name: "Zapier" },
-  { icon: Layers,        name: "Tally" },
-  { icon: Bell,          name: "SMS" },
-  { icon: FileText,      name: "DigiLocker" },
+  { icon: Cloud,         name: "Google Drive" },
+  { icon: Cloud,         name: "Dropbox" },
+  { icon: Cloud,         name: "OneDrive" },
+  { icon: Sparkles,      name: "OpenAI" },
+  { icon: Sparkles,      name: "Anthropic" },
+  { icon: BellIcon,      name: "Web Push" },
+  { icon: Smartphone,    name: "Expo Push" },
+  { icon: Database,      name: "CSV / Excel" },
   { icon: Zap,           name: "Webhooks" },
 ];
 
@@ -59,18 +113,27 @@ export default function Features() {
         eyebrow="Features"
         title="One CRM, the"
         accent="whole pipeline."
-        subtitle="From the first phone call to the final invoice — every step of a sale, tracked. Configurable for any industry."
+        subtitle="From the first website visit to the signed contract, the support ticket, and the renewal — every step tracked. 50+ features, configurable for any industry."
       />
 
-      {/* ── All features grid ── */}
-      <section className="px-6 pb-20">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {allFeatures.map((f, i) => (
-              <FeatureCard key={f.title} {...f} delay={i * 0.04} />
-            ))}
+      {/* ── Grouped feature sections ── */}
+      <section className="px-6 pb-20 space-y-20">
+        {groupedFeatures.map((group, gi) => (
+          <div key={group.label} className="max-w-6xl mx-auto">
+            <SectionHeading
+              eyebrow={`${String(gi + 1).padStart(2, "0")} · ${group.label}`}
+              title={group.label.split(" & ")[0]}
+              accent={group.label.includes(" & ") ? `& ${group.label.split(" & ")[1].toLowerCase()}.` : "."}
+              eyebrowColor={group.eyebrowColor}
+              accentColor={group.accentColor}
+            />
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {group.items.map((f, i) => (
+                <FeatureCard key={f.title} {...f} delay={i * 0.03} />
+              ))}
+            </div>
           </div>
-        </div>
+        ))}
       </section>
 
       {/* ── How it works ── */}
@@ -78,8 +141,8 @@ export default function Features() {
         <div className="max-w-6xl mx-auto">
           <SectionHeading
             eyebrow="How it works"
-            title="Four steps from"
-            accent="lead to install."
+            title="From first touch to"
+            accent="lifelong customer."
             eyebrowColor="text-emerald-400"
             accentColor="from-emerald-300 to-green-500"
           />
@@ -135,7 +198,7 @@ export default function Features() {
             </p>
             <ul className="space-y-4 mb-8">
               {[
-                "Live notifications tab with unread badge",
+                "Live notifications tab with unread badge + Expo push",
                 "2FA OTP challenge on login",
                 "Organization context + plan badge in profile",
                 "Industry-agnostic lead cards",
@@ -242,7 +305,7 @@ export default function Features() {
                 className="aspect-square rounded-2xl bg-white/[0.04] border border-white/10 flex flex-col items-center justify-center gap-2 hover:border-yellow-400/30 hover:bg-white/[0.08] transition-all"
               >
                 <tool.icon size={24} className="text-gray-400" />
-                <span className="text-[10px] text-gray-500">{tool.name}</span>
+                <span className="text-[10px] text-gray-500 text-center px-1">{tool.name}</span>
               </motion.div>
             ))}
           </div>

@@ -209,6 +209,230 @@ export const api = {
       method: "POST",
       body: { template, replace_pipelines: replacePipelines },
     }),
+
+  // ── Phase 6 — Enterprise Operations Pack ──
+
+  // Advanced Filter Builder
+  getFilterMeta: (module = "lead") => request(`/api/filters/meta/?module=${module}`),
+  runFilterQuery: (module, filter, limit = 200) =>
+    request("/api/filters/query/", {
+      method: "POST",
+      body: { module, filter, limit },
+    }),
+
+  // Import / Export Engine
+  listImports: () => request("/api/imports/"),
+  uploadImport: (formData) =>
+    request("/api/imports/", { method: "POST", body: formData, isForm: true }),
+  getImport: (id) => request(`/api/imports/${id}/`),
+  commitImport: (id) => request(`/api/imports/${id}/?action=commit`, { method: "POST" }),
+  rollbackImport: (id) => request(`/api/imports/${id}/?action=rollback`, { method: "POST" }),
+  deleteImport: (id) => request(`/api/imports/${id}/`, { method: "DELETE" }),
+  exportCsvUrl: (module) => `${API_URL}/api/export/?module=${module}`,
+
+  // Lead Distribution
+  getDistributionRules: () => request("/api/distribution/rules/"),
+  createDistributionRule: (data) =>
+    request("/api/distribution/rules/", { method: "POST", body: data }),
+  updateDistributionRule: (id, data) =>
+    request(`/api/distribution/rules/${id}/`, { method: "PATCH", body: data }),
+  deleteDistributionRule: (id) =>
+    request(`/api/distribution/rules/${id}/`, { method: "DELETE" }),
+  getAssignmentLogs: () => request("/api/distribution/logs/"),
+
+  // Session & Device Management
+  getMySessions: () => request("/api/sessions/me/"),
+  revokeSession: (id) => request(`/api/sessions/${id}/revoke/`, { method: "POST" }),
+  revokeAllOtherSessions: () => request("/api/sessions/me/", { method: "DELETE" }),
+  getAdminSessions: (params = "") => request(`/api/admin/sessions/${params}`),
+
+  // Approval Workflows
+  getApprovals: (mine) => request(`/api/approvals/${mine ? `?mine=${mine}` : ""}`),
+  createApproval: (data) => request("/api/approvals/", { method: "POST", body: data }),
+  getApproval: (id) => request(`/api/approvals/${id}/`),
+  decideApproval: (id, action, comment = "") =>
+    request(`/api/approvals/${id}/`, {
+      method: "POST",
+      body: { action, comment },
+    }),
+  cancelApproval: (id) => request(`/api/approvals/${id}/`, { method: "DELETE" }),
+
+  // API Keys
+  getApiKeys: () => request("/api/api-keys/"),
+  createApiKey: (data) => request("/api/api-keys/", { method: "POST", body: data }),
+  updateApiKey: (id, data) =>
+    request(`/api/api-keys/${id}/`, { method: "PATCH", body: data }),
+  revokeApiKey: (id) => request(`/api/api-keys/${id}/`, { method: "DELETE" }),
+
+  // Public docs URLs (for opening in new tab)
+  docsUrl: () => `${API_URL}/api/docs/`,
+  schemaUrl: () => `${API_URL}/api/schema/`,
+
+  // ── Phase 7 — Enterprise Integrations Pack ──
+
+  // Automation execution
+  getAutomationRuns: (ruleId) =>
+    request(`/api/automation/runs/${ruleId ? `?rule=${ruleId}` : ""}`),
+  testAutomationRule: (ruleId, payload) =>
+    request(`/api/automation/rules/${ruleId}/test/`, { method: "POST", body: { payload } }),
+
+  // WhatsApp send
+  sendWhatsApp: (data) => request("/api/whatsapp/send/", { method: "POST", body: data }),
+  bulkSendWhatsApp: (recipients, body) =>
+    request("/api/whatsapp/bulk-send/", { method: "POST", body: { recipients, body } }),
+
+  // Razorpay billing
+  createBillingOrder: (planSlug) =>
+    request("/api/billing/order/", { method: "POST", body: { plan: planSlug } }),
+  verifyBillingPayment: (data) =>
+    request("/api/billing/verify/", { method: "POST", body: data }),
+  invoicePdfUrl: (invoiceId) => `${API_URL}/api/billing/invoices/${invoiceId}/pdf/`,
+
+  // Helpdesk
+  getDepartments: () => request("/api/helpdesk/departments/"),
+  createDepartment: (data) => request("/api/helpdesk/departments/", { method: "POST", body: data }),
+  updateDepartment: (id, data) => request(`/api/helpdesk/departments/${id}/`, { method: "PATCH", body: data }),
+  deleteDepartment: (id) => request(`/api/helpdesk/departments/${id}/`, { method: "DELETE" }),
+
+  getSLAPolicies: () => request("/api/helpdesk/sla-policies/"),
+  createSLAPolicy: (data) => request("/api/helpdesk/sla-policies/", { method: "POST", body: data }),
+  updateSLAPolicy: (id, data) => request(`/api/helpdesk/sla-policies/${id}/`, { method: "PATCH", body: data }),
+  deleteSLAPolicy: (id) => request(`/api/helpdesk/sla-policies/${id}/`, { method: "DELETE" }),
+
+  getTickets: (status) => request(`/api/helpdesk/tickets/${status ? `?status=${status}` : ""}`),
+  getTicket: (id) => request(`/api/helpdesk/tickets/${id}/`),
+  createTicket: (data) => request("/api/helpdesk/tickets/", { method: "POST", body: data }),
+  updateTicket: (id, data) => request(`/api/helpdesk/tickets/${id}/`, { method: "PATCH", body: data }),
+  deleteTicket: (id) => request(`/api/helpdesk/tickets/${id}/`, { method: "DELETE" }),
+  replyTicket: (id, body, isInternal = false) =>
+    request(`/api/helpdesk/tickets/${id}/reply/`, {
+      method: "POST", body: { body, is_internal: isInternal },
+    }),
+
+  getCannedReplies: () => request("/api/helpdesk/canned-replies/"),
+  createCannedReply: (data) => request("/api/helpdesk/canned-replies/", { method: "POST", body: data }),
+  updateCannedReply: (id, data) => request(`/api/helpdesk/canned-replies/${id}/`, { method: "PATCH", body: data }),
+  deleteCannedReply: (id) => request(`/api/helpdesk/canned-replies/${id}/`, { method: "DELETE" }),
+
+  // Customer portal — admin side
+  getPortalTokens: () => request("/api/portal-tokens/"),
+  createPortalToken: (data) => request("/api/portal-tokens/", { method: "POST", body: data }),
+  revokePortalToken: (id) => request(`/api/portal-tokens/${id}/`, { method: "DELETE" }),
+
+  // ── Phase 8 — Ecosystem & Intelligence Pack ──
+
+  // Knowledge Base
+  getKbCategories: () => request("/api/kb/categories/"),
+  createKbCategory: (data) => request("/api/kb/categories/", { method: "POST", body: data }),
+  updateKbCategory: (id, data) => request(`/api/kb/categories/${id}/`, { method: "PATCH", body: data }),
+  deleteKbCategory: (id) => request(`/api/kb/categories/${id}/`, { method: "DELETE" }),
+  getKbArticles: (q, category) => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (category) p.set("category", category);
+    return request(`/api/kb/articles/?${p.toString()}`);
+  },
+  getKbArticle: (id) => request(`/api/kb/articles/${id}/`),
+  createKbArticle: (data) => request("/api/kb/articles/", { method: "POST", body: data }),
+  updateKbArticle: (id, data) => request(`/api/kb/articles/${id}/`, { method: "PATCH", body: data }),
+  deleteKbArticle: (id) => request(`/api/kb/articles/${id}/`, { method: "DELETE" }),
+  voteKbArticle: (id, helpful) => request(`/api/kb/articles/${id}/vote/`, { method: "POST", body: { helpful } }),
+
+  // Forms
+  getForms: () => request("/api/forms/"),
+  getForm: (id) => request(`/api/forms/${id}/`),
+  createForm: (data) => request("/api/forms/", { method: "POST", body: data }),
+  updateForm: (id, data) => request(`/api/forms/${id}/`, { method: "PATCH", body: data }),
+  deleteForm: (id) => request(`/api/forms/${id}/`, { method: "DELETE" }),
+  getFormSubmissions: (id) => request(`/api/forms/${id}/submissions/`),
+
+  // E-signature
+  getSignatureRequests: () => request("/api/esign/requests/"),
+  getSignatureRequest: (id) => request(`/api/esign/requests/${id}/`),
+  createSignatureRequest: (formData) => request("/api/esign/requests/", { method: "POST", body: formData, isForm: true }),
+  cancelSignatureRequest: (id) => request(`/api/esign/requests/${id}/`, { method: "DELETE" }),
+
+  // Backups
+  getBackups: () => request("/api/backups/"),
+  createBackup: (data = {}) => request("/api/backups/", { method: "POST", body: data }),
+  restoreBackup: (id) => request(`/api/backups/${id}/restore/`, { method: "POST" }),
+  pruneBackups: () => request("/api/backups/prune/", { method: "POST" }),
+
+  // Cloud storage
+  getCloudConnections: () => request("/api/cloud/connections/"),
+  disconnectCloud: (provider) => request(`/api/cloud/connections/?provider=${provider}`, { method: "DELETE" }),
+  startCloudOAuth: (provider) => request(`/api/cloud/${provider}/start/`),
+  cloudOAuthCallback: (provider, code) =>
+    request(`/api/cloud/${provider}/callback/`, { method: "POST", body: { code } }),
+
+  // AI
+  aiSummarizeLead: (leadId) => request(`/api/ai/leads/${leadId}/summary/`, { method: "POST" }),
+  aiSuggestFollowup: (leadId) => request(`/api/ai/leads/${leadId}/followup/`, { method: "POST" }),
+  aiPredictDealRisk: (dealId) => request(`/api/ai/deals/${dealId}/risk/`, { method: "POST" }),
+  aiChat: (messages) => request("/api/ai/chat/", { method: "POST", body: { messages } }),
+  getAiRequests: () => request("/api/ai/requests/"),
+
+  // Plugins
+  getPlugins: () => request("/api/plugins/"),
+  installPlugin: (data) => request("/api/plugins/", { method: "POST", body: data }),
+  updatePlugin: (id, data) => request(`/api/plugins/${id}/`, { method: "PATCH", body: data }),
+  togglePlugin: (id, action) => request(`/api/plugins/${id}/`, { method: "POST", body: { action } }),
+  uninstallPlugin: (id) => request(`/api/plugins/${id}/`, { method: "DELETE" }),
+  getPluginHooks: () => request("/api/plugins/hooks/"),
+
+  // Push
+  getPushSubscriptions: () => request("/api/push/subscriptions/"),
+  subscribePush: (data) => request("/api/push/subscriptions/", { method: "POST", body: data }),
+  unsubscribePush: (id) => request(`/api/push/subscriptions/${id}/`, { method: "DELETE" }),
+  testPush: (body) => request("/api/push/test/", { method: "POST", body }),
+  getPushPublicKey: () => request("/api/push/public-key/"),
+
+  // Advanced Analytics
+  getAnalyticsForecast: (months = 12) => request(`/api/analytics/forecast/?months=${months}`),
+  getAnalyticsCohort: (weeks = 8) => request(`/api/analytics/cohort/?weeks=${weeks}`),
+  getAnalyticsChurn: () => request("/api/analytics/churn/"),
+  getAnalyticsFunnel: () => request("/api/analytics/funnel/"),
+  getAnalyticsExecutive: () => request("/api/analytics/executive/"),
+
+  // Dashboard layouts
+  getDashboardLayouts: () => request("/api/dashboard-layouts/"),
+  createDashboardLayout: (data) => request("/api/dashboard-layouts/", { method: "POST", body: data }),
+  updateDashboardLayout: (id, data) => request(`/api/dashboard-layouts/${id}/`, { method: "PATCH", body: data }),
+  deleteDashboardLayout: (id) => request(`/api/dashboard-layouts/${id}/`, { method: "DELETE" }),
+
+  // Customer portal — customer side. Uses a portal token instead of JWT.
+  portal: {
+    me: (token) => portalRequest("/api/portal/me/", token),
+    dashboard: (token) => portalRequest("/api/portal/dashboard/", token),
+    tickets: (token) => portalRequest("/api/portal/tickets/", token),
+    createTicket: (token, data) => portalRequest("/api/portal/tickets/", token, { method: "POST", body: data }),
+    ticket: (token, id) => portalRequest(`/api/portal/tickets/${id}/`, token),
+    replyTicket: (token, id, body) =>
+      portalRequest(`/api/portal/tickets/${id}/`, token, { method: "POST", body: { body } }),
+    invoices: (token) => portalRequest("/api/portal/invoices/", token),
+    documents: (token) => portalRequest("/api/portal/documents/", token),
+    deals: (token) => portalRequest("/api/portal/deals/", token),
+  },
 };
+
+async function portalRequest(path, token, { method = "GET", body } = {}) {
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: {
+      Authorization: `Portal ${token}`,
+      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  const data = text ? (() => { try { return JSON.parse(text); } catch { return text; } })() : null;
+  if (!res.ok) {
+    const err = new Error(data?.error || data?.detail || `Request failed: ${res.status}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
 
 export { API_URL, request };
