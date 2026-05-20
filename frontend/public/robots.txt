@@ -1,0 +1,11 @@
+# CRM Suite — search engine guidance
+User-agent: *
+Allow: /
+Allow: /login
+
+# Authenticated app + admin areas — don't index user data
+Disallow: /app/
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: https://crm.advance-solar.in/sitemap.xml

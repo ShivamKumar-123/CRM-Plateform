@@ -294,6 +294,12 @@ class Leads(models.Model):
         related_name="leads",
     )
 
+    # Lead scoring (0-100). Updated by signals on activity events. See LeadScoreRule.
+    score = models.IntegerField(default=0)
+    # Categorical priority derived from score: HOT (>=70), WARM (>=40), COLD (<40)
+    priority = models.CharField(max_length=10, default="COLD")
+    last_activity_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -834,3 +840,179 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"{self.user.username}: {self.title}"
+
+
+# ════════════════════════════════════════════════════════════════
+#  PHASE 5 — Enterprise Foundation Pack
+# ════════════════════════════════════════════════════════════════
+
+
+# ─── 1. Lead Scoring ─────────────────────────────────────────────
+
+class LeadScoreRule(models.Model):
+    """
+    Org-scoped scoring rule. When an EVENT happens on a lead, lead.score is
+    adjusted by `points` (positive or negative). Signals in api/signals.py
+    consume these rules.
+    """
+
+    EVENT_CHOICES = [
+        ("lead_created",         "Lead created"),
+        ("status_changed",       "Status changed"),
+        ("deal_created",         "Deal created"),
+        ("deal_won",             "Deal won"),
+        ("payment_received",     "Payment received"),
+        ("document_uploaded",    "Document uploaded"),
+        ("task_completed",       "Task completed"),
+        # Manual / future-ready
+        ("email_opened",         "Email opened"),
+        ("email_replied",        "Email replied"),
+        ("meeting_booked",       "Meeting booked"),
+        ("quotation_viewed",     "Quotation viewed"),
+        ("payment_initiated",    "Payment initiated"),
+        ("inactivity_penalty",   "Inactivity penalty"),
+    ]
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="score_rules")
+    event = models.CharField(max_length=40, choices=EVENT_CHOICES)
+    points = models.IntegerField(default=0)  # +ve adds, -ve subtracts
+    description = models.CharField(max_length=200, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("organization", "event")]
+        ordering = ["event"]
+
+
+class LeadScoreHistory(models.Model):
+    """Audit trail for score changes — show 'why' on a lead's profile."""
+    lead = models.ForeignKey(Leads, on_delete=models.CASCADE, related_name="score_history")
+    event = models.CharField(max_length=40)
+    points_delta = models.IntegerField()
+    score_before = models.IntegerField()
+    score_after = models.IntegerField()
+    reason = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["lead", "-created_at"])]
+
+
+# ─── 2. Sales Targets & Commissions ──────────────────────────────
+
+class SalesTarget(models.Model):
+    PERIOD_CHOICES = [
+        ("MONTH",   "Monthly"),
+        ("QUARTER", "Quarterly"),
+        ("YEAR",    "Yearly"),
+    ]
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="sales_targets")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sales_targets")
+    period = models.CharField(max_length=10, choices=PERIOD_CHOICES, default="MONTH")
+    # Period anchor — for monthly it's the first day of the month, etc.
+    period_start = models.DateField()
+    target_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    commission_pct = models.DecimalField(max_digits=5, decimal_places=2, default=0)  # e.g. 5.00 = 5%
+
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("organization", "user", "period", "period_start")]
+        ordering = ["-period_start"]
+        indexes = [models.Index(fields=["organization", "user", "period_start"])]
+
+
+# ─── 3. Saved Views ──────────────────────────────────────────────
+
+class SavedView(models.Model):
+    MODULE_CHOICES = [
+        ("lead", "Lead"),
+        ("deal", "Deal"),
+        ("task", "Task"),
+        ("customer", "Customer"),
+    ]
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="saved_views")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="saved_views")
+    module = models.CharField(max_length=20, choices=MODULE_CHOICES)
+    name = models.CharField(max_length=120)
+    # Filters: {field: {op: "eq"|"in"|"gt"|...|"icontains", value: ...}, ...}
+    # Or grouped: {logic: "AND", conditions: [...]}
+    filters = models.JSONField(default=dict, blank=True)
+    sort = models.CharField(max_length=80, blank=True, default="-created_at")
+    is_shared = models.BooleanField(default=False)  # If True, all org users can use it
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["module", "name"]
+        indexes = [
+            models.Index(fields=["organization", "module"]),
+            models.Index(fields=["user", "module"]),
+        ]
+
+
+# ─── 4. Call Logs & Voice Notes ──────────────────────────────────
+
+class CallLog(models.Model):
+    DIRECTION_CHOICES = [
+        ("INBOUND",  "Inbound"),
+        ("OUTBOUND", "Outbound"),
+    ]
+    OUTCOME_CHOICES = [
+        ("CONNECTED",     "Connected"),
+        ("NO_ANSWER",     "No answer"),
+        ("BUSY",          "Busy"),
+        ("VOICEMAIL",     "Voicemail"),
+        ("WRONG_NUMBER",  "Wrong number"),
+        ("CALLBACK",      "Callback requested"),
+        ("INTERESTED",    "Interested"),
+        ("NOT_INTERESTED","Not interested"),
+        ("CONVERTED",     "Converted to deal"),
+    ]
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="call_logs")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="call_logs")
+    lead = models.ForeignKey(Leads, on_delete=models.SET_NULL, null=True, blank=True, related_name="call_logs")
+    deal = models.ForeignKey(Deal, on_delete=models.SET_NULL, null=True, blank=True, related_name="call_logs")
+
+    direction = models.CharField(max_length=10, choices=DIRECTION_CHOICES, default="OUTBOUND")
+    outcome = models.CharField(max_length=20, choices=OUTCOME_CHOICES, default="CONNECTED")
+    duration_seconds = models.PositiveIntegerField(default=0)
+    phone_number = models.CharField(max_length=20, blank=True)
+
+    notes = models.TextField(blank=True)
+    voice_note_url = models.URLField(blank=True)  # for future Twilio/Exotel recording links
+
+    next_action = models.CharField(max_length=200, blank=True)
+    next_action_at = models.DateTimeField(null=True, blank=True)
+
+    called_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-called_at"]
+        indexes = [
+            models.Index(fields=["organization", "-called_at"]),
+            models.Index(fields=["user", "-called_at"]),
+            models.Index(fields=["lead", "-called_at"]),
+        ]
+
+
+# ─── 5. Duplicate Match Cache (optional — duplicates detected on the fly) ──
+
+# Duplicate detection is computed live on query — no model needed.
+# See views._find_duplicates() and DuplicateLeads endpoint.
+
+
+# ─── 6. Industry Templates ───────────────────────────────────────
+
+# Industry templates are static fixture data, not a DB model.
+# See api/industry_templates.py for the data + apply_template() helper.

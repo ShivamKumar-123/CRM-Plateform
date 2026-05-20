@@ -4,7 +4,6 @@ from .views import (
     TaskData, TaskMessageView,
     Me, AdminSystemStats, AdminUsers, AdminUserDetail,
     PipelineList, OrganizationList, OrganizationDetail,
-    # platform extensions
     AutomationRuleList, AutomationRuleDetail,
     WhatsAppConfigView, WhatsAppMessageList,
     PlanList, CurrentSubscription, InvoiceList, BillingCheckout,
@@ -13,6 +12,13 @@ from .views import (
     TwoFactorStatus, TwoFactorSetup, TwoFactorVerify, TwoFactorDisable,
     NotificationList, NotificationMarkRead, NotificationMarkAllRead,
     PipelineStageReorder,
+    # Phase 5
+    LeadScoreRuleList, LeadScoreRuleDetail, LeadScoreHistoryView,
+    LeadDuplicates, LeadDuplicateMerge,
+    SalesTargetList, SalesTargetDetail, SalesLeaderboard,
+    SavedViewList, SavedViewDetail,
+    CallLogList,
+    IndustryTemplateList, IndustryTemplateApply,
 )
 
 
@@ -30,6 +36,9 @@ urlpatterns = [
     # leads
     path("leads/", LeadsData.as_view()),
     path("leads/<int:lead_id>/", LeadsData.as_view(), name="lead-detail"),
+    path("leads/<int:lead_id>/duplicates/", LeadDuplicates.as_view(), name="lead-duplicates"),
+    path("leads/<int:lead_id>/score-history/", LeadScoreHistoryView.as_view(), name="lead-score-history"),
+    path("leads/merge/", LeadDuplicateMerge.as_view(), name="lead-merge"),
 
     # deals
     path("deals/", DealData.as_view(), name="deal-list-create"),
@@ -48,7 +57,7 @@ urlpatterns = [
     path("tasks/<int:task_id>/", TaskData.as_view()),
     path("tasks/<int:task_id>/task-messages/", TaskMessageView.as_view(), name="task-message-create"),
 
-    # ── platform extensions (stubs) ──
+    # platform extensions
     path("automation/rules/", AutomationRuleList.as_view(), name="automation-rules"),
     path("automation/rules/<int:rule_id>/", AutomationRuleDetail.as_view(), name="automation-rule-detail"),
 
@@ -74,10 +83,26 @@ urlpatterns = [
     path("notifications/<int:notification_id>/read/", NotificationMarkRead.as_view(), name="notification-read"),
     path("notifications/read-all/", NotificationMarkAllRead.as_view(), name="notifications-read-all"),
 
-    # ── super-admin ──
+    # ── Phase 5 — Enterprise Foundation Pack ──
+    path("score-rules/", LeadScoreRuleList.as_view(), name="score-rules"),
+    path("score-rules/<int:rule_id>/", LeadScoreRuleDetail.as_view(), name="score-rule-detail"),
+
+    path("sales-targets/", SalesTargetList.as_view(), name="sales-targets"),
+    path("sales-targets/<int:target_id>/", SalesTargetDetail.as_view(), name="sales-target-detail"),
+    path("sales-leaderboard/", SalesLeaderboard.as_view(), name="sales-leaderboard"),
+
+    path("saved-views/", SavedViewList.as_view(), name="saved-views"),
+    path("saved-views/<int:view_id>/", SavedViewDetail.as_view(), name="saved-view-detail"),
+
+    path("call-logs/", CallLogList.as_view(), name="call-logs"),
+
+    path("industry-templates/", IndustryTemplateList.as_view(), name="industry-templates"),
+
+    # super-admin
     path("admin/stats/", AdminSystemStats.as_view(), name="admin-stats"),
     path("admin/users/", AdminUsers.as_view(), name="admin-users"),
     path("admin/users/<int:user_id>/", AdminUserDetail.as_view(), name="admin-user-detail"),
     path("admin/organizations/", OrganizationList.as_view(), name="admin-orgs"),
     path("admin/organizations/<int:org_id>/", OrganizationDetail.as_view(), name="admin-org-detail"),
+    path("admin/organizations/<int:org_id>/apply-template/", IndustryTemplateApply.as_view(), name="apply-template"),
 ]

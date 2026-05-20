@@ -231,6 +231,13 @@ export const INDUSTRY_CHOICES = [
 export const PLAN_CHOICES = ["FREE", "PRO", "ENTERPRISE"];
 export const ORG_STATUS_CHOICES = ["ACTIVE", "TRIAL", "SUSPENDED", "CANCELLED"];
 
+// Lead priority colors — derived from score (HOT >=70, WARM >=40, COLD <40)
+export const PRIORITY_PALETTE = {
+  HOT:  "bg-red-500 text-white",
+  WARM: "bg-yellow-400 text-black",
+  COLD: "bg-sky-400 text-black",
+};
+
 // Default status colors. Pipelines also include per-stage colors that supersede.
 export const LEAD_STATUS_PALETTE = {
   NEW: "bg-sky-400 text-black",

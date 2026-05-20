@@ -7,6 +7,8 @@ from .models import (
     Plan, Subscription, Invoice,
     CustomField, CustomFieldValue,
     AuditLog, TwoFactorSecret, Notification,
+    LeadScoreRule, LeadScoreHistory,
+    SalesTarget, SavedView, CallLog,
 )
 
 User = get_user_model()
@@ -164,6 +166,9 @@ class LeadAdminAndStaffSerializer(serializers.ModelSerializer):
             'notes',
             'status',
             'pipeline',
+            'score',
+            'priority',
+            'last_activity_at',
             'assigned_to',
             'assigned_to_username',
             'organization',
@@ -172,7 +177,7 @@ class LeadAdminAndStaffSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['organization']
+        read_only_fields = ['organization', 'score', 'priority', 'last_activity_at']
 
 #auto foreign key set karne ke liye based on username
 
@@ -237,6 +242,8 @@ class LeadOtherSerializer(serializers.ModelSerializer):
             'base_price',
             'status',
             'pipeline',
+            'score',
+            'priority',
             'assigned_to_username',
             'created_at',
         ]
@@ -486,3 +493,106 @@ class NotificationSerializer(serializers.ModelSerializer):
         model = Notification
         fields = "__all__"
         read_only_fields = ["user", "organization", "created_at", "read_at"]
+
+
+# ════════════════════════════════════════════════════════════════
+#  PHASE 5 — Enterprise Foundation Pack serializers
+# ════════════════════════════════════════════════════════════════
+
+class LeadScoreRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LeadScoreRule
+        fields = "__all__"
+        read_only_fields = ["organization", "created_at", "updated_at"]
+
+
+class LeadScoreHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LeadScoreHistory
+        fields = [
+            "id", "lead", "event", "points_delta",
+            "score_before", "score_after", "reason", "created_at",
+        ]
+        read_only_fields = [
+            "id", "lead", "event", "points_delta",
+            "score_before", "score_after", "reason", "created_at",
+        ]
+
+
+class SalesTargetSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source="user.username", read_only=True)
+    # Derived fields — computed at read time
+    achieved_amount = serializers.SerializerMethodField()
+    achievement_pct = serializers.SerializerMethodField()
+    commission_earned = serializers.SerializerMethodField()
+
+    def _won_deals_qs(self, obj):
+        """Won deals for this user inside the target's period."""
+        from datetime import date, timedelta
+        from .models import Deal
+        start = obj.period_start
+        if obj.period == "MONTH":
+            # Next month's first day
+            if start.month == 12:
+                end = start.replace(year=start.year + 1, month=1)
+            else:
+                end = start.replace(month=start.month + 1)
+        elif obj.period == "QUARTER":
+            month = start.month + 3
+            year = start.year + (month - 1) // 12
+            month = ((month - 1) % 12) + 1
+            end = start.replace(year=year, month=month)
+        else:  # YEAR
+            end = start.replace(year=start.year + 1)
+
+        return Deal.objects.filter(
+            organization=obj.organization,
+            assigned_to=obj.user,
+            status="WON",
+            created_at__date__gte=start,
+            created_at__date__lt=end,
+        )
+
+    def get_achieved_amount(self, obj):
+        total = sum((d.deal_value for d in self._won_deals_qs(obj)), 0)
+        return float(total)
+
+    def get_achievement_pct(self, obj):
+        achieved = self.get_achieved_amount(obj)
+        target = float(obj.target_amount) or 1
+        return round((achieved / target) * 100, 1)
+
+    def get_commission_earned(self, obj):
+        achieved = self.get_achieved_amount(obj)
+        return round(achieved * float(obj.commission_pct) / 100, 2)
+
+    class Meta:
+        model = SalesTarget
+        fields = [
+            "id", "organization", "user", "user_username",
+            "period", "period_start", "target_amount", "commission_pct",
+            "notes",
+            "achieved_amount", "achievement_pct", "commission_earned",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["organization", "created_at", "updated_at"]
+
+
+class SavedViewSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source="user.username", read_only=True)
+
+    class Meta:
+        model = SavedView
+        fields = "__all__"
+        read_only_fields = ["organization", "created_at", "updated_at"]
+
+
+class CallLogSerializer(serializers.ModelSerializer):
+    user_username = serializers.CharField(source="user.username", read_only=True)
+    lead_name = serializers.CharField(source="lead.name", read_only=True)
+    deal_id = serializers.IntegerField(source="deal.id", read_only=True)
+
+    class Meta:
+        model = CallLog
+        fields = "__all__"
+        read_only_fields = ["organization", "user", "created_at"]

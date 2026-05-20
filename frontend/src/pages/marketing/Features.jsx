@@ -1,0 +1,255 @@
+import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import {
+  Users, Briefcase, BarChart3, ShieldCheck, FileCheck2, IndianRupee,
+  Building2, Bell, Lock, Smartphone, GitBranch, Layers, Target, Trophy,
+  Phone, Bookmark, Sliders, Zap, Sliders as SlidersIcon, ArrowRight,
+  Check, Workflow, HeartHandshake, Rocket,
+  MessageSquare, Mail, Database, FileText, Cloud, Activity,
+} from "lucide-react";
+import { PageHero, SectionHeading, FeatureCard, CTABanner } from "./_components.jsx";
+
+const allFeatures = [
+  { icon: Users,        title: "Lead Pipeline",        body: "Capture from any source — website forms, WhatsApp, email, events, dealer network. All flow into one pipeline.", tint: "from-yellow-400 to-amber-500" },
+  { icon: GitBranch,    title: "Drag-Drop Pipelines",  body: "Configure stages per module with real @dnd-kit drag handles. Won/lost flags + per-stage colors.", tint: "from-sky-400 to-blue-500" },
+  { icon: Layers,       title: "Custom Fields",        body: "11 field types — text, number, date, select, multi-select, checkbox, email, phone, URL, textarea, datetime. Per module, per org.", tint: "from-violet-400 to-purple-500" },
+  { icon: Target,       title: "Lead Scoring",         body: "Auto-classify HOT (≥70) / WARM (40-69) / COLD (<40) based on activity events. 13 default rules. Full audit trail per lead.", tint: "from-pink-400 to-rose-500" },
+  { icon: Trophy,       title: "Sales Targets",        body: "Monthly/quarterly/yearly targets with auto-computed achievement + commission. Live leaderboard.", tint: "from-emerald-400 to-green-500" },
+  { icon: Briefcase,    title: "Deal Management",      body: "Track Open / Won / Cancelled. Deal value, cost price, server-computed net profit, expected close date.", tint: "from-orange-400 to-red-500" },
+  { icon: BarChart3,    title: "Real-time Analytics",  body: "Live dashboards for revenue, win rate, top performers, monthly trends. Refresh once, see truth.", tint: "from-amber-400 to-orange-500" },
+  { icon: FileCheck2,   title: "KYC & Documents",      body: "Aadhaar, PAN, contracts, invoices — collect, store, attach to every customer record. PDF/JPG/PNG up to 5MB.", tint: "from-fuchsia-400 to-pink-500" },
+  { icon: IndianRupee,  title: "Payment Tracking",     body: "Booking → Partial → Full. Cash, cheque, UPI, card, online, finance — every transaction logged with proof.", tint: "from-cyan-400 to-blue-500" },
+  { icon: Phone,        title: "Call Logs",            body: "Log calls with outcome (Connected / Voicemail / Converted / Callback), duration, notes, next-action follow-up.", tint: "from-yellow-400 to-amber-500" },
+  { icon: Building2,    title: "Multi-Tenant SaaS",    body: "Each organization gets isolated data, users, pipelines, branding and quotas. Run one platform, serve many businesses.", tint: "from-sky-400 to-blue-500" },
+  { icon: ShieldCheck,  title: "Role-Based Access",    body: "8 built-in roles — Owner, Admin, Manager, Team Lead, Sales, Support, Employee, Viewer. Enforced server-side.", tint: "from-violet-400 to-purple-500" },
+  { icon: Bell,         title: "Live Notifications",   body: "Bell with unread badge polls every 60s. Auto-emit on lead-assign, deal-won, payment-received, task-due.", tint: "from-pink-400 to-rose-500" },
+  { icon: Activity,     title: "Audit Logs",           body: "Every CREATE / UPDATE / DELETE / LOGIN logged with field-level diffs, IP, user-agent. Compliance-ready.", tint: "from-emerald-400 to-green-500" },
+  { icon: Lock,         title: "TOTP 2FA",             body: "Real `pyotp` enrollment with QR codes + 8 backup codes. Enforced on login — works on web and mobile.", tint: "from-orange-400 to-red-500" },
+  { icon: Smartphone,   title: "Native Mobile App",    body: "iOS + Android via Expo. Field teams update leads from the customer's location with offline-ready architecture.", tint: "from-amber-400 to-orange-500" },
+  { icon: Sliders,      title: "Industry Templates",   body: "7 one-click presets — Solar · Real Estate · Healthcare · Insurance · Logistics · Education · General. Each seeds pipelines + custom fields + scoring rules.", tint: "from-fuchsia-400 to-pink-500" },
+  { icon: Bookmark,     title: "Saved Views",          body: "Save your filter+sort combos as named views. Share with team or keep private. Set defaults per module.", tint: "from-cyan-400 to-blue-500" },
+];
+
+const steps = [
+  { icon: Target,         title: "Capture", body: "Lead arrives via website form, WhatsApp ping, or phone call — dropped into the pipeline with source attribution + auto-scored." },
+  { icon: Workflow,       title: "Qualify", body: "Assign to sales, schedule site visit, generate quotation. Status moves through configurable stages. Score auto-bumps on each activity." },
+  { icon: HeartHandshake, title: "Close",   body: "Deal marked Won. Booking payment recorded. KYC documents uploaded. Customer signs. Audit log captures everything." },
+  { icon: Rocket,         title: "Retain",  body: "Track installation milestones, log final payment, surface customer for referrals & service calls. Notifications keep team aligned." },
+];
+
+const integrations = [
+  { icon: MessageSquare, name: "WhatsApp" },
+  { icon: Mail,          name: "Gmail" },
+  { icon: IndianRupee,   name: "Razorpay" },
+  { icon: Cloud,         name: "Drive" },
+  { icon: Database,      name: "Excel" },
+  { icon: Phone,         name: "Exotel" },
+  { icon: Activity,      name: "Slack" },
+  { icon: GitBranch,     name: "Zapier" },
+  { icon: Layers,        name: "Tally" },
+  { icon: Bell,          name: "SMS" },
+  { icon: FileText,      name: "DigiLocker" },
+  { icon: Zap,           name: "Webhooks" },
+];
+
+export default function Features() {
+  return (
+    <>
+      <PageHero
+        eyebrow="Features"
+        title="One CRM, the"
+        accent="whole pipeline."
+        subtitle="From the first phone call to the final invoice — every step of a sale, tracked. Configurable for any industry."
+      />
+
+      {/* ── All features grid ── */}
+      <section className="px-6 pb-20">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {allFeatures.map((f, i) => (
+              <FeatureCard key={f.title} {...f} delay={i * 0.04} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── How it works ── */}
+      <section className="px-6 py-24">
+        <div className="max-w-6xl mx-auto">
+          <SectionHeading
+            eyebrow="How it works"
+            title="Four steps from"
+            accent="lead to install."
+            eyebrowColor="text-emerald-400"
+            accentColor="from-emerald-300 to-green-500"
+          />
+          <div className="relative grid md:grid-cols-4 gap-6">
+            <div className="hidden md:block absolute top-12 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-yellow-500/30 to-transparent" />
+            {steps.map((s, i) => (
+              <motion.div
+                key={s.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.12 }}
+                className="relative"
+              >
+                <div className="flex flex-col items-center text-center md:items-start md:text-left">
+                  <div className="relative">
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-yellow-400 via-amber-400 to-yellow-500 flex items-center justify-center shadow-[0_0_30px_rgba(250,204,21,0.4)]">
+                      <s.icon size={28} className="text-black" />
+                    </div>
+                    <span className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-black border border-yellow-400 text-yellow-400 text-xs font-bold flex items-center justify-center">
+                      {i + 1}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold mt-5">{s.title}</h3>
+                  <p className="text-sm text-gray-400 mt-2 leading-relaxed">{s.body}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Mobile app showcase ── */}
+      <section className="px-6 py-20">
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+          >
+            <p className="text-xs uppercase tracking-widest text-cyan-400 mb-3 font-bold">
+              Mobile app
+            </p>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-6 leading-tight">
+              Your CRM, in{" "}
+              <span className="bg-gradient-to-r from-cyan-300 to-blue-500 bg-clip-text text-transparent">
+                your pocket.
+              </span>
+            </h2>
+            <p className="text-gray-400 text-lg mb-8 leading-relaxed">
+              Built with Expo (React Native). Update leads from the customer's
+              location, log payments on site, capture KYC with your phone camera.
+            </p>
+            <ul className="space-y-4 mb-8">
+              {[
+                "Live notifications tab with unread badge",
+                "2FA OTP challenge on login",
+                "Organization context + plan badge in profile",
+                "Industry-agnostic lead cards",
+              ].map((t) => (
+                <li key={t} className="flex items-start gap-3">
+                  <div className="mt-0.5 w-6 h-6 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center flex-shrink-0">
+                    <Check size={14} className="text-black" strokeWidth={3} />
+                  </div>
+                  <span className="text-gray-300">{t}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap gap-3">
+              <a href="#" className="inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-white text-black hover:scale-105 transition-transform">
+                <Smartphone size={20} />
+                <div className="text-left">
+                  <p className="text-[10px] -mb-0.5">Download on the</p>
+                  <p className="text-sm font-bold">App Store</p>
+                </div>
+              </a>
+              <a href="#" className="inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-white text-black hover:scale-105 transition-transform">
+                <Smartphone size={20} />
+                <div className="text-left">
+                  <p className="text-[10px] -mb-0.5">Get it on</p>
+                  <p className="text-sm font-bold">Google Play</p>
+                </div>
+              </a>
+            </div>
+          </motion.div>
+
+          {/* Phone mockup */}
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="relative flex justify-center"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 blur-3xl" />
+            <div className="relative w-[280px] h-[580px] rounded-[48px] bg-gradient-to-b from-gray-900 to-black border-8 border-gray-800 shadow-[0_30px_80px_rgba(56,189,248,0.3)] overflow-hidden">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-black rounded-b-2xl z-10" />
+              <div className="h-full overflow-hidden bg-black p-4 pt-10">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <p className="text-[10px] text-gray-500">DASHBOARD</p>
+                    <p className="text-base font-bold">Welcome, admin</p>
+                  </div>
+                  <div className="w-8 h-8 rounded-lg bg-yellow-400 flex items-center justify-center">
+                    <Zap size={14} className="text-black" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2.5 mb-4">
+                  {[
+                    { label: "Leads", value: "1,245", color: "bg-yellow-400" },
+                    { label: "Deals", value: "87", color: "bg-sky-400" },
+                    { label: "Revenue", value: "₹48L", color: "bg-green-400" },
+                    { label: "Win", value: "68%", color: "bg-pink-400" },
+                  ].map((c) => (
+                    <div key={c.label} className="p-3 rounded-xl bg-white/5 border border-white/10">
+                      <div className={`w-5 h-5 rounded ${c.color} mb-2`} />
+                      <p className="text-[9px] text-gray-500">{c.label}</p>
+                      <p className="text-sm font-bold mt-0.5">{c.value}</p>
+                    </div>
+                  ))}
+                </div>
+                {[
+                  { name: "Ramesh Kumar", tag: "WON", meta: "Solar · 5kW · Jaipur", color: "bg-green-400" },
+                  { name: "Priya Sharma", tag: "VISIT", meta: "Real Estate · 3BHK · Pune", color: "bg-yellow-400" },
+                  { name: "Dr. Arjun Mehta", tag: "NEW", meta: "Healthcare · Consult · Delhi", color: "bg-sky-400" },
+                ].map((c) => (
+                  <div key={c.name} className="p-3 rounded-xl bg-white/5 border border-white/10 mb-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs font-semibold">{c.name}</p>
+                      <span className={`px-2 py-0.5 rounded-full ${c.color} text-black text-[9px] font-bold`}>{c.tag}</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500">{c.meta}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Integrations ── */}
+      <section className="px-6 py-20">
+        <div className="max-w-6xl mx-auto">
+          <SectionHeading
+            eyebrow="Plays well with others"
+            title="Connects to"
+            accent="every tool"
+            subtitle="you already use."
+            eyebrowColor="text-orange-400"
+            accentColor="from-orange-300 to-red-500"
+          />
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+            {integrations.map((tool, i) => (
+              <motion.div
+                key={tool.name}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.04 }}
+                whileHover={{ y: -4, scale: 1.05 }}
+                className="aspect-square rounded-2xl bg-white/[0.04] border border-white/10 flex flex-col items-center justify-center gap-2 hover:border-yellow-400/30 hover:bg-white/[0.08] transition-all"
+              >
+                <tool.icon size={24} className="text-gray-400" />
+                <span className="text-[10px] text-gray-500">{tool.name}</span>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <CTABanner />
+    </>
+  );
+}

@@ -170,6 +170,45 @@ export const api = {
   // Drag-drop pipelines
   reorderPipelineStages: (pipelineId, stages) =>
     request(`/api/pipelines/${pipelineId}/reorder/`, { method: "POST", body: { stages } }),
+
+  // ── Phase 5 — Enterprise Foundation Pack ──
+
+  // Lead scoring
+  getScoreRules: () => request("/api/score-rules/"),
+  createScoreRule: (data) => request("/api/score-rules/", { method: "POST", body: data }),
+  updateScoreRule: (id, data) => request(`/api/score-rules/${id}/`, { method: "PATCH", body: data }),
+  deleteScoreRule: (id) => request(`/api/score-rules/${id}/`, { method: "DELETE" }),
+  getLeadScoreHistory: (leadId) => request(`/api/leads/${leadId}/score-history/`),
+
+  // Duplicate detection
+  getLeadDuplicates: (leadId) => request(`/api/leads/${leadId}/duplicates/`),
+  mergeLeads: (targetId, sourceId) =>
+    request("/api/leads/merge/", { method: "POST", body: { target_id: targetId, source_id: sourceId } }),
+
+  // Sales targets + leaderboard
+  getSalesTargets: () => request("/api/sales-targets/"),
+  createSalesTarget: (data) => request("/api/sales-targets/", { method: "POST", body: data }),
+  updateSalesTarget: (id, data) => request(`/api/sales-targets/${id}/`, { method: "PATCH", body: data }),
+  deleteSalesTarget: (id) => request(`/api/sales-targets/${id}/`, { method: "DELETE" }),
+  getSalesLeaderboard: () => request("/api/sales-leaderboard/"),
+
+  // Saved views
+  getSavedViews: (module) => request(`/api/saved-views/${module ? `?module=${module}` : ""}`),
+  createSavedView: (data) => request("/api/saved-views/", { method: "POST", body: data }),
+  updateSavedView: (id, data) => request(`/api/saved-views/${id}/`, { method: "PATCH", body: data }),
+  deleteSavedView: (id) => request(`/api/saved-views/${id}/`, { method: "DELETE" }),
+
+  // Call logs
+  getCallLogs: (leadId) => request(`/api/call-logs/${leadId ? `?lead=${leadId}` : ""}`),
+  createCallLog: (data) => request("/api/call-logs/", { method: "POST", body: data }),
+
+  // Industry templates
+  getIndustryTemplates: () => request("/api/industry-templates/"),
+  applyIndustryTemplate: (orgId, template, replacePipelines = false) =>
+    request(`/api/admin/organizations/${orgId}/apply-template/`, {
+      method: "POST",
+      body: { template, replace_pipelines: replacePipelines },
+    }),
 };
 
 export { API_URL, request };

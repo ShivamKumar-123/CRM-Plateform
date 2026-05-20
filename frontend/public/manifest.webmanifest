@@ -1,0 +1,27 @@
+{
+  "name": "CRM Suite — Multi-Industry Sales CRM",
+  "short_name": "CRM Suite",
+  "description": "Industry-agnostic multi-tenant CRM for leads, deals, KYC, payments and pipelines. Built for solar, real estate, healthcare, education and any sales business.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#000000",
+  "theme_color": "#facc15",
+  "lang": "en-IN",
+  "categories": ["business", "productivity", "finance"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

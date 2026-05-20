@@ -13,6 +13,8 @@ from .models import (
     Plan, Subscription, Invoice,
     CustomField, CustomFieldValue,
     AuditLog, TwoFactorSecret, Notification,
+    LeadScoreRule, LeadScoreHistory,
+    SalesTarget, SavedView, CallLog,
 )
 from .serializers import (
     DashboardSerializer,
@@ -26,8 +28,11 @@ from .serializers import (
     PlanSerializer, SubscriptionSerializer, InvoiceSerializer,
     CustomFieldSerializer, CustomFieldValueSerializer,
     AuditLogSerializer, TwoFactorStatusSerializer, NotificationSerializer,
+    LeadScoreRuleSerializer, LeadScoreHistorySerializer,
+    SalesTargetSerializer, SavedViewSerializer, CallLogSerializer,
 )
 from .tenancy import scope_qs, require_org, get_request_org
+from .industry_templates import INDUSTRY_TEMPLATES, apply_template_to_org
 
 User = get_user_model()
 
@@ -1474,3 +1479,348 @@ class PipelineStageReorder(APIView):
         for s in stages:
             PipelineStage.objects.filter(pipeline=pipeline, id=s.get("id")).update(order=s.get("order", 0))
         return Response({"message": f"Reordered {len(stages)} stage(s)"})
+
+
+# ════════════════════════════════════════════════════════════════
+#  PHASE 5 — Enterprise Foundation Pack views
+# ════════════════════════════════════════════════════════════════
+
+
+# ─── 1. Lead Scoring ─────────────────────────────────────────────
+
+class LeadScoreRuleList(APIView):
+    """List + bulk-upsert lead score rules for the org. Admin only."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(LeadScoreRule.objects.all(), request)
+        return Response(LeadScoreRuleSerializer(qs, many=True).data)
+
+    def post(self, request):
+        user = request.user
+        if not (user.is_staff or user.is_superuser or user.role in ("ADMIN", "OWNER", "MANAGER")):
+            return Response({"error": "Admin only"}, status=403)
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Org required"}, status=400)
+        s = LeadScoreRuleSerializer(data=request.data)
+        if s.is_valid():
+            s.save(organization=org)
+            return Response(s.data, status=201)
+        return Response(s.errors, status=400)
+
+
+class LeadScoreRuleDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, rule_id):
+        rule = get_object_or_404(scope_qs(LeadScoreRule.objects.all(), request), id=rule_id)
+        s = LeadScoreRuleSerializer(rule, data=request.data, partial=True)
+        if s.is_valid():
+            s.save()
+            return Response(s.data)
+        return Response(s.errors, status=400)
+
+    def delete(self, request, rule_id):
+        rule = get_object_or_404(scope_qs(LeadScoreRule.objects.all(), request), id=rule_id)
+        rule.delete()
+        return Response({"message": "Rule deleted"})
+
+
+class LeadScoreHistoryView(APIView):
+    """History of score changes for one lead."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, lead_id):
+        lead_qs = scope_qs(Leads.objects.all(), request)
+        lead = get_object_or_404(lead_qs, id=lead_id)
+        history = LeadScoreHistory.objects.filter(lead=lead)[:100]
+        return Response({
+            "lead_id": lead.id,
+            "score": lead.score,
+            "priority": lead.priority,
+            "history": LeadScoreHistorySerializer(history, many=True).data,
+        })
+
+
+# ─── 2. Duplicate Detection ──────────────────────────────────────
+
+class LeadDuplicates(APIView):
+    """
+    For one lead, find org-scoped duplicates by email OR phone (last 10 digits match).
+    GET  /api/leads/<lead_id>/duplicates/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, lead_id):
+        base = scope_qs(Leads.objects.all(), request)
+        lead = get_object_or_404(base, id=lead_id)
+        matches = self._find(lead, base)
+        return Response({
+            "lead_id": lead.id,
+            "duplicate_count": len(matches),
+            "duplicates": LeadOtherSerializer(matches, many=True).data,
+        })
+
+    @staticmethod
+    def _find(lead, base_qs):
+        """Find leads in same org with matching phone (last 10) or email (case-insensitive)."""
+        from django.db.models import Q
+        last10 = "".join(c for c in (lead.phone or "") if c.isdigit())[-10:]
+        q = Q()
+        if last10 and len(last10) == 10:
+            q |= Q(phone__endswith=last10)
+        if lead.email:
+            q |= Q(email__iexact=lead.email)
+        if not q:
+            return []
+        return base_qs.filter(q).exclude(id=lead.id)[:20]
+
+
+class LeadDuplicateMerge(APIView):
+    """
+    Merge `source` lead into `target`. Source's deals, documents, payments, tasks,
+    call logs all reparent to target. Source is then deleted. Target's score is
+    boosted by the sum of merged-from source's score (capped at 100).
+
+    POST /api/leads/merge/   {"target_id": 1, "source_id": 2}
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if not (user.is_staff or user.is_superuser or user.role in ("ADMIN", "OWNER", "MANAGER")):
+            return Response({"error": "Admin/Manager only"}, status=403)
+
+        target_id = request.data.get("target_id")
+        source_id = request.data.get("source_id")
+        if not target_id or not source_id or target_id == source_id:
+            return Response({"error": "target_id and source_id required and must differ"}, status=400)
+
+        base = scope_qs(Leads.objects.all(), request)
+        target = get_object_or_404(base, id=target_id)
+        source = get_object_or_404(base, id=source_id)
+        if target.organization_id != source.organization_id:
+            return Response({"error": "Cross-org merge blocked"}, status=400)
+
+        # Reparent child records
+        Deal.objects.filter(lead=source).update(lead=target)
+        Document.objects.filter(lead=source).update(lead=target)
+        CallLog.objects.filter(lead=source).update(lead=target)
+        # Bump target score
+        target.score = min(100, (target.score or 0) + (source.score or 0) // 2)
+        target.priority = "HOT" if target.score >= 70 else ("WARM" if target.score >= 40 else "COLD")
+        # Append source's notes
+        if source.notes:
+            target.notes = (target.notes or "") + f"\n[merged from #{source.id}] {source.notes}"
+        target.save(update_fields=["score", "priority", "notes"])
+        source.delete()
+
+        return Response({
+            "message": f"Merged lead #{source_id} into #{target_id}",
+            "target": LeadAdminAndStaffSerializer(target).data,
+        })
+
+
+# ─── 3. Sales Targets & Commissions ──────────────────────────────
+
+class SalesTargetList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(SalesTarget.objects.select_related("user"), request)
+        return Response(SalesTargetSerializer(qs, many=True).data)
+
+    def post(self, request):
+        user = request.user
+        if not (user.is_staff or user.is_superuser or user.role in ("ADMIN", "OWNER", "MANAGER")):
+            return Response({"error": "Admin/Manager only"}, status=403)
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Org required"}, status=400)
+        s = SalesTargetSerializer(data=request.data)
+        if s.is_valid():
+            s.save(organization=org)
+            return Response(s.data, status=201)
+        return Response(s.errors, status=400)
+
+
+class SalesTargetDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, target_id):
+        t = get_object_or_404(scope_qs(SalesTarget.objects.all(), request), id=target_id)
+        s = SalesTargetSerializer(t, data=request.data, partial=True)
+        if s.is_valid():
+            s.save()
+            return Response(s.data)
+        return Response(s.errors, status=400)
+
+    def delete(self, request, target_id):
+        t = get_object_or_404(scope_qs(SalesTarget.objects.all(), request), id=target_id)
+        t.delete()
+        return Response({"message": "Target deleted"})
+
+
+class SalesLeaderboard(APIView):
+    """Top performers for the org based on won deals in a period (defaults to current month)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from datetime import date
+        # Period defaults to current month
+        today = date.today()
+        period_start = today.replace(day=1)
+
+        deals_qs = scope_qs(Deal.objects.all(), request).filter(
+            status="WON",
+            created_at__date__gte=period_start,
+        )
+        rows = list(
+            deals_qs.filter(assigned_to__isnull=False)
+            .values("assigned_to__id", "assigned_to__username")
+            .annotate(
+                won_value=Sum("deal_value"),
+                won_count=Count("id"),
+            )
+            .order_by("-won_value")[:20]
+        )
+        return Response({
+            "period_start": period_start,
+            "leaderboard": rows,
+        })
+
+
+# ─── 4. Saved Views ──────────────────────────────────────────────
+
+class SavedViewList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # User sees: their own views + shared views in their org
+        org_views = scope_qs(SavedView.objects.all(), request)
+        qs = org_views.filter(Q(user=request.user) | Q(is_shared=True))
+        module = request.query_params.get("module")
+        if module:
+            qs = qs.filter(module=module)
+        return Response(SavedViewSerializer(qs, many=True).data)
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Org required"}, status=400)
+        s = SavedViewSerializer(data=request.data)
+        if s.is_valid():
+            s.save(organization=org, user=request.user)
+            return Response(s.data, status=201)
+        return Response(s.errors, status=400)
+
+
+class SavedViewDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, view_id):
+        v = get_object_or_404(scope_qs(SavedView.objects.all(), request), id=view_id)
+        if v.user_id and v.user_id != request.user.id and not request.user.is_superuser:
+            return Response({"error": "Can only edit your own views"}, status=403)
+        s = SavedViewSerializer(v, data=request.data, partial=True)
+        if s.is_valid():
+            s.save()
+            return Response(s.data)
+        return Response(s.errors, status=400)
+
+    def delete(self, request, view_id):
+        v = get_object_or_404(scope_qs(SavedView.objects.all(), request), id=view_id)
+        if v.user_id and v.user_id != request.user.id and not request.user.is_superuser:
+            return Response({"error": "Can only delete your own views"}, status=403)
+        v.delete()
+        return Response({"message": "View deleted"})
+
+
+# ─── 5. Call Logs ────────────────────────────────────────────────
+
+class CallLogList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = scope_qs(CallLog.objects.select_related("user", "lead"), request)
+        # Optional filter
+        lead_id = request.query_params.get("lead")
+        if lead_id:
+            qs = qs.filter(lead_id=lead_id)
+
+        # Aggregate stats
+        stats = qs.aggregate(
+            total_calls=Count("id"),
+            total_duration=Coalesce(Sum("duration_seconds"), Value(0)),
+            connected=Count("id", filter=Q(outcome="CONNECTED")),
+            converted=Count("id", filter=Q(outcome="CONVERTED")),
+            no_answer=Count("id", filter=Q(outcome="NO_ANSWER")),
+        )
+        return Response({
+            "stats": stats,
+            "call_logs": CallLogSerializer(qs[:200], many=True).data,
+        })
+
+    def post(self, request):
+        org = require_org(request)
+        if org is None:
+            return Response({"error": "Org required"}, status=400)
+        s = CallLogSerializer(data=request.data)
+        if s.is_valid():
+            s.save(organization=org, user=request.user)
+            return Response(s.data, status=201)
+        return Response(s.errors, status=400)
+
+
+# ─── 6. Industry Templates ───────────────────────────────────────
+
+class IndustryTemplateList(APIView):
+    """Read-only list of available templates."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        result = []
+        for slug, tpl in INDUSTRY_TEMPLATES.items():
+            result.append({
+                "slug": slug,
+                "name": tpl["name"],
+                "lead_stages": [s[0] for s in tpl["lead_stages"]],
+                "deal_stages": [s[0] for s in tpl["deal_stages"]],
+                "custom_field_count": len(tpl.get("custom_fields", [])),
+                "custom_fields": [{"slug": f[0], "name": f[1], "type": f[2]}
+                                  for f in tpl.get("custom_fields", [])],
+            })
+        return Response(result)
+
+
+class IndustryTemplateApply(APIView):
+    """
+    Apply a template's stages + custom fields + scoring rules to an organization.
+    Super admin only (since it can mutate pipeline definitions).
+
+    POST /api/admin/organizations/<org_id>/apply-template/
+        body: {"template": "REAL_ESTATE", "replace_pipelines": false}
+    """
+    permission_classes = [IsSuperUser]
+
+    def post(self, request, org_id):
+        org = get_object_or_404(Organization, id=org_id)
+        template_slug = (request.data.get("template") or "").upper()
+        if template_slug not in INDUSTRY_TEMPLATES:
+            return Response(
+                {"error": f"Unknown template. Available: {list(INDUSTRY_TEMPLATES.keys())}"},
+                status=400,
+            )
+        replace = bool(request.data.get("replace_pipelines", False))
+        try:
+            summary = apply_template_to_org(org, template_slug, replace_pipelines=replace)
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+        # Also update the org's industry field to match
+        org.industry = template_slug if template_slug != "GENERAL" else org.industry
+        org.save(update_fields=["industry"])
+        return Response({
+            "message": f"Template '{template_slug}' applied to {org.slug}",
+            "summary": summary,
+        })

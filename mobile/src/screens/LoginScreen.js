@@ -16,6 +16,8 @@ import { colors, radius } from "../theme";
 export default function LoginScreen() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [needs2FA, setNeeds2FA] = useState(false);
   const [error, setError] = useState("");
   const { login, loading } = useAuth();
 
@@ -25,8 +27,19 @@ export default function LoginScreen() {
       setError("Enter username and password");
       return;
     }
-    const res = await login(username.trim(), password);
-    if (!res.ok) setError(res.error);
+    if (needs2FA && !otp) {
+      setError("Enter the 6-digit code from your authenticator app");
+      return;
+    }
+    const res = await login(username.trim(), password, needs2FA ? otp : undefined);
+    if (res.ok) {
+      // navigator auto-redirects on auth state change
+    } else if (res.requires2fa) {
+      setNeeds2FA(true);
+      setError("");
+    } else {
+      setError(res.error);
+    }
   };
 
   return (
@@ -83,6 +96,35 @@ export default function LoginScreen() {
             />
           </View>
         </View>
+
+        {needs2FA && (
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: colors.yellow }]}>
+              TWO-FACTOR CODE
+            </Text>
+            <View style={[styles.inputWrap, styles.otpWrap]}>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={16}
+                color={colors.yellow}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                value={otp}
+                onChangeText={(v) => setOtp(v.replace(/\D/g, "").slice(0, 6))}
+                placeholder="123 456"
+                placeholderTextColor={colors.textFaint}
+                keyboardType="number-pad"
+                maxLength={6}
+                autoFocus
+                style={[styles.input, styles.otpInput]}
+              />
+            </View>
+            <Text style={styles.hint}>
+              Enter the 6-digit code from your authenticator app, or a backup code.
+            </Text>
+          </View>
+        )}
 
         {!!error && (
           <View style={styles.errorBox}>
@@ -166,6 +208,21 @@ const styles = StyleSheet.create({
     color: colors.text,
     paddingVertical: 12,
     fontSize: 15,
+  },
+  otpWrap: {
+    backgroundColor: "rgba(250,204,21,0.05)",
+    borderColor: "rgba(250,204,21,0.4)",
+  },
+  otpInput: {
+    textAlign: "center",
+    fontSize: 22,
+    letterSpacing: 8,
+    fontWeight: "700",
+  },
+  hint: {
+    color: colors.textFaint,
+    fontSize: 10,
+    marginTop: 6,
   },
   errorBox: {
     backgroundColor: "rgba(239,68,68,0.1)",

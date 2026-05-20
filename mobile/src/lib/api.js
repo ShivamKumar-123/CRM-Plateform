@@ -87,10 +87,27 @@ function safeParse(text) {
 }
 
 export const api = {
-  login: (username, password) =>
-    request("/api/token/", { method: "POST", body: { username, password } }),
+  login: (username, password, otp) => {
+    const body = { username, password };
+    if (otp) body.otp = otp;
+    return request("/api/token/", { method: "POST", body });
+  },
   refresh: refreshAccessToken,
+
+  // Current user (with nested organization)
+  getMe: () => request("/api/me/"),
+
+  // Core data
   getDashboard: () => request("/api/dashboard/"),
   getLeads: () => request("/api/leads/"),
   getDeals: () => request("/api/deals/"),
+
+  // Pipelines (dynamic stages)
+  getLeadPipeline: () => request("/api/pipelines/?module=lead"),
+  getDealPipeline: () => request("/api/pipelines/?module=deal"),
+
+  // Notifications
+  getNotifications: () => request("/api/notifications/"),
+  markNotificationRead: (id) => request(`/api/notifications/${id}/read/`, { method: "POST" }),
+  markAllNotificationsRead: () => request("/api/notifications/read-all/", { method: "POST" }),
 };

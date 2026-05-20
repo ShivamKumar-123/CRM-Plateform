@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
   Building2, Search, Plus, Pencil, Trash2, Check, Crown,
-  Users, BarChart3, Briefcase,
+  Users, BarChart3, Briefcase, Layers,
 } from "lucide-react";
 import { api } from "../../lib/api.js";
 import {
@@ -150,6 +150,20 @@ export default function AdminOrganizations() {
             </div>
 
             <div className="flex justify-end gap-2 mt-auto pt-2">
+              <button onClick={async () => {
+                const tmpl = prompt(
+                  "Apply industry template — type one of:\nGENERAL · SOLAR · REAL_ESTATE · HEALTHCARE · INSURANCE · LOGISTICS · EDUCATION",
+                  o.industry,
+                );
+                if (!tmpl) return;
+                try {
+                  const res = await api.applyIndustryTemplate(o.id, tmpl);
+                  alert(`Template applied!\nStages added: ${res.summary.stages_added}\nFields added: ${res.summary.fields_added}\nScore rules added: ${res.summary.rules_added}`);
+                  load();
+                } catch (e) { alert(e.message); }
+              }}
+                className="p-2 rounded-lg bg-white/5 hover:bg-violet-400/20 text-violet-300 border border-white/10"
+                title="Apply industry template"><Layers size={14} /></button>
               <button onClick={() => setEditing(o)}
                 className="p-2 rounded-lg bg-white/5 hover:bg-yellow-400/20 text-yellow-300 border border-white/10"
                 title="Edit"><Pencil size={14} /></button>

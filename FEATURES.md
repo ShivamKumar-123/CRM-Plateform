@@ -3,7 +3,7 @@
 **Project:** CRM Suite — industry-agnostic multi-tenant CRM platform
 **Repo:** CRM-Advance-International-Solar (history started solar-only; now generic)
 **Audience:** Any business — solar, real estate, healthcare, education, logistics, e-commerce, manufacturing, agencies, finance, insurance, B2B sales, services
-**Last updated:** 2026-05-18 (Phase 3 — Platform Extensions scaffolded)
+**Last updated:** 2026-05-20 (Phase 5 — Enterprise Foundation Pack: Lead Scoring · Duplicate Detection · Sales Targets · Industry Templates · Saved Views · Call Logs)
 
 This document catalogues every feature shipped across the three apps in this repository.
 
@@ -276,69 +276,98 @@ Separate route tree at `/admin/*` — dedicated dashboard for `is_superuser=True
 
 ---
 
-## 6.5 Platform Extensions (NEW — Phase 3 scaffolded)
+## 6.5 Platform Extensions (Phase 3 scaffolded → Phase 4 mostly completed)
 
-Eight enterprise SaaS features added as scaffolds. Every one has:
-- ✅ Database models + migration applied
-- ✅ DRF serializers
-- ✅ Tenant-scoped API endpoints
-- ✅ Admin UI page wired into sidebar
-- ✅ Yellow banner on each page disclosing what's stubbed vs working
+Eight enterprise SaaS features. **5 of 8 are now fully working** — the other 3 require external service credentials you must provide.
 
-A "scaffold" means the **data and CRUD layer is functional**; the heavy execution layer (rule engine, payment gateway, push delivery, etc.) is deferred to a future pass. Each scaffold's UI lists the exact next steps required to make it production-grade.
+### Status legend
+- 🟢 **Working** — fully functional, used in tests
+- 🟡 **Scaffold** — data layer + UI exist; execution layer waits on external service
 
-### 6.5.1 Automation Engine — `/admin/automation`
+### 6.5.1 Automation Engine — `/admin/automation`  🟡 scaffold
 - **Model:** `AutomationRule` (org-scoped, `trigger_event`, `conditions` JSON, `actions` JSON, `is_active`, `run_count`, `last_run_at`)
 - **Triggers supported:** `lead_created` · `lead_status_changed` · `lead_assigned` · `deal_won` · `deal_lost` · `payment_received` · `task_overdue` · `task_completed`
 - **Endpoints:** `GET/POST /api/automation/rules/`, `GET/PATCH/DELETE /api/automation/rules/<id>/`
-- **Status:** Rules persist. **Execution engine NOT IMPLEMENTED** — requires Celery + Redis to dispatch rules on signal events.
+- **Status:** Rules persist + UI works. **Execution engine** needs Celery + Redis (set `CELERY_BROKER_URL` in `.env`).
 
-### 6.5.2 WhatsApp Integration — `/admin/whatsapp`
-- **Models:** `WhatsAppConfig` (one-per-org with phone_number_id, business_account_id, access_token, enabled flag) + `WhatsAppMessage` (in/out, status, body, template_name, external_id, sent_at)
+### 6.5.2 WhatsApp Integration — `/admin/whatsapp`  🟡 scaffold
+- **Models:** `WhatsAppConfig` (one-per-org) + `WhatsAppMessage` (in/out, status, body, template_name, external_id, sent_at)
 - **Endpoints:** `GET/PUT /api/whatsapp/config/`, `GET/POST /api/whatsapp/messages/`
-- **Status:** Config saves, messages log as `PENDING`. **Actual WhatsApp Business Cloud API call NOT IMPLEMENTED** — needs Meta business account + phone verification + template approval.
+- **Status:** Config saves, messages log as `PENDING`. **Actual send** needs Meta WhatsApp Business Cloud API credentials (`WHATSAPP_*` in `.env`).
 
-### 6.5.3 Billing & Subscriptions — `/admin/billing`
-- **Models:** `Plan` (3 seeded: Free ₹0, Pro ₹2499/mo, Enterprise ₹9999/mo) + `Subscription` (one-per-org with status TRIAL/ACTIVE/PAST_DUE/CANCELLED) + `Invoice` (DRAFT/ISSUED/PAID/OVERDUE/VOID)
-- **Endpoints:** `GET /api/billing/plans/`, `GET/POST /api/billing/subscription/`, `GET /api/billing/invoices/`, `POST /api/billing/checkout/` (stub)
-- **Status:** Plans + subscriptions + invoices persist. **Razorpay checkout NOT IMPLEMENTED** — needs RAZORPAY_KEY_ID/SECRET in `.env` + payment-status webhook.
+### 6.5.3 Billing & Subscriptions — `/admin/billing`  🟡 scaffold
+- **Models:** `Plan` (3 seeded: Free ₹0, Pro ₹2499/mo, Enterprise ₹9999/mo) + `Subscription` + `Invoice`
+- **Endpoints:** `GET /api/billing/plans/`, `GET/POST /api/billing/subscription/`, `GET /api/billing/invoices/`, `POST /api/billing/checkout/`
+- **Status:** Plans + subscriptions + invoices persist. **Razorpay checkout** needs `RAZORPAY_KEY_ID/SECRET/WEBHOOK_SECRET` in `.env`.
 
-### 6.5.4 Drag-and-Drop Pipelines — `/admin/pipelines`
-- Builds on existing `Pipeline` + `PipelineStage` models (Phase 2)
-- **New endpoint:** `POST /api/pipelines/<id>/reorder/` accepts `{stages: [{id, order}, ...]}` and atomically reorders
-- **UI:** Lists both lead + deal pipelines with stages. Each stage has ↑↓ buttons for reordering. Dirty state shows **Save order** button.
-- **Status:** Reorder fully functional. **True HTML5 drag-and-drop NOT IMPLEMENTED** — needs `@dnd-kit/core` package (UI replacement, API already done).
+### 6.5.4 Drag-and-Drop Pipelines — `/admin/pipelines`  🟢 WORKING
+- Uses `Pipeline` + `PipelineStage` models from Phase 2
+- **Endpoint:** `POST /api/pipelines/<id>/reorder/` — atomic reorder
+- **UI:** Real **@dnd-kit** drag handles with PointerSensor + KeyboardSensor. Grab the ⋮⋮ icon and drag stages vertically; "Save order" button appears when dirty.
+- **Verified:** Reorder NEW↔CONTACTED via API → confirmed in pipeline data → restored via second drag → confirmed.
 
-### 6.5.5 Custom Fields Engine — `/admin/custom-fields`
-- **Models:** `CustomField` (per-org, per-module, 11 field types: text/textarea/number/date/datetime/select/multiselect/checkbox/email/phone/url) + `CustomFieldValue` (FK to lead/deal/task with `value_text`/`value_number`/`value_date`)
+### 6.5.5 Custom Fields Engine — `/admin/custom-fields`  🟢 WORKING
+- **Models:** `CustomField` (per-org, per-module, 11 field types) + `CustomFieldValue` (FK to lead/deal/task)
 - **Endpoints:** `GET/POST /api/custom-fields/?module=lead|deal|task|customer`, `PATCH/DELETE /api/custom-fields/<id>/`
-- **UI:** Module tabs (Lead/Deal/Task/Customer), full CRUD modal (display name, slug, type, required, position, choices for select types, help text)
-- **Status:** Field definitions save and list correctly. **Dynamic form rendering NOT IMPLEMENTED** — Lead/Deal create-edit modals don't yet display custom field inputs or persist values.
+- **UI:** Module tabs + full CRUD modal · **Dynamic form rendering** on AdminLeads — `<CustomFieldInput>` renders correct widget per field type (text / number / date / select / multi-select / checkbox / textarea / email / phone / URL).
+- **Lead serializer** exposes nested `custom_fields: {slug: value}` dict. POST/PUT accepts the same shape and persists to `CustomFieldValue` rows.
+- **Verified:** Created `property_size_sqft` field → created lead with `{property_size_sqft: 2400}` → re-fetched returns `2400.0` → PATCHed to `3500` → re-fetched returns `3500.0`.
 
-### 6.5.6 Audit Logs — `/admin/audit-logs`
-- **Model:** `AuditLog` (org, user, action CREATE/UPDATE/DELETE/LOGIN/LOGOUT/EXPORT/IMPORT, model_name, object_id, object_repr, changes JSON, ip_address, user_agent, timestamp)
-- **Endpoint:** `GET /api/audit-logs/` — tenant-scoped, returns latest 500
-- **UI:** Sortable table with colored action badges, IP, user-agent
-- **Status:** Read endpoint works. **Django signals NOT YET WIRED** — table stays empty until `post_save` / `post_delete` handlers call `AuditLog.objects.create()`.
+### 6.5.6 Audit Logs — `/admin/audit-logs`  🟢 WORKING
+- **Model:** `AuditLog` (org, user, action, model_name, object_id, object_repr, changes JSON, ip_address, user_agent, timestamp)
+- **Endpoint:** `GET /api/audit-logs/` — tenant-scoped, latest 500
+- **Signal producers** in [api/signals.py](backend/backendCRM/api/signals.py):
+  - `pre_save` snapshots tracked fields for diff capture
+  - `post_save` writes CREATE / UPDATE rows with `{field: {from, to}}` diffs
+  - `post_delete` writes DELETE rows
+  - `user_logged_in` / `user_logged_out` signals write LOGIN / LOGOUT rows
+  - Models covered: Leads, Deal, Payment, Task, User
+- **Tracked fields per model:** ~5–10 high-value fields each (status, amounts, assignments, role, etc.). Excludes timestamps and large blob fields.
+- **Verified:** Created a lead → AuditLog `[CREATE]` row appeared. Updated `status NEW → CANCELLED` → row appeared with exact diff `{"status": {"from": "NEW", "to": "CANCELLED"}}`.
 
-### 6.5.7 Two-Factor Authentication — `/admin/two-factor`
+### 6.5.7 Two-Factor Authentication — `/admin/two-factor`  🟢 WORKING
 - **Model:** `TwoFactorSecret` (one-per-user with `secret` base32, `is_enabled`, `backup_codes` JSON, `enabled_at`, `last_used_at`)
-- **Endpoints:** `GET /api/2fa/status/`, `POST /api/2fa/setup/` (stub), `POST /api/2fa/verify/` (stub), `POST /api/2fa/disable/`
-- **UI:** Status panel + 4-step "how it will work" explainer
-- **Status:** Status + disable endpoints functional. **TOTP setup/verify NOT IMPLEMENTED** — needs `pyotp` + `qrcode` packages + login-flow interception to enforce 2nd factor.
+- **Endpoints:** `GET /api/2fa/status/`, `POST /api/2fa/setup/`, `POST /api/2fa/verify/`, `POST /api/2fa/disable/`
+- **Setup flow:** Returns base32 secret + `otpauth://` URI + **base64-encoded PNG QR code** (rendered with `qrcode` library) for scanning with Google Authenticator / Authy / 1Password.
+- **Verify flow:** Validates 6-digit code with `pyotp.TOTP(secret).verify(code, valid_window=1)` (±30s leeway). On first enable, generates **8 backup codes** (format `XXXX-XXXX-XXXX`) shown once.
+- **Login enforcement** via custom [TwoFactorTokenObtainPairView](backend/backendCRM/api/auth.py): `/api/token/` checks if user has `is_enabled=True`. If yes and no `otp` provided → 401 with `requires_2fa: true`. Otherwise verifies OTP or backup code before issuing JWT.
+- **Frontend Login UI** detects `requires_2fa` and slides in an animated OTP field (big monospace 6-digit input, yellow border) on the same page.
+- **Verified:** Generated secret + scanned QR + verified with `pyotp`-generated code → enabled + got 8 backup codes. Login w/o OTP → 401 `requires_2fa: true`. Login with fresh TOTP → 200 + tokens. Login with wrong OTP → 401.
 
-### 6.5.8 Notifications — `/api/notifications/` + bell icon in Navbar
-- **Model:** `Notification` (user, type info/success/warning/error/lead_assigned/deal_won/task_due/payment_received, title, body, link, read, read_at)
+### 6.5.8 Notifications  🟢 FULLY WORKING (web + mobile)
+- **Model:** `Notification` (user, type, title, body, link, read, read_at, organization)
 - **Endpoints:** `GET /api/notifications/` (returns `{unread_count, notifications: [...]}`), `POST /api/notifications/<id>/read/`, `POST /api/notifications/read-all/`
-- **UI:** Real `NotificationBell` component in user app Navbar — polls every 60s, shows unread badge (9+ cap), dropdown with mark-as-read on click
-- **Status:** **Fully working** — list, mark-read, mark-all-read all functional. **No event producers yet** — code paths that should emit notifications (lead assignment, deal won, task overdue) need to be wired with `Notification.objects.create(...)` calls.
+- **Real producers** wired in [api/signals.py](backend/backendCRM/api/signals.py):
+  - Lead created with an assignee → `lead_assigned` notification to assignee
+  - Lead reassigned to a different user → `lead_assigned` notification
+  - Deal `status` transitions to `WON` → `deal_won` notification to the deal's owner
+  - Payment created → `payment_received` notification to the deal's owner
+  - Task created with an assignee → `task_due` notification
+- **Web UI:** [NotificationBell.jsx](frontend/src/components/NotificationBell.jsx) in user-app Navbar — polls every 60s, shows unread badge (9+ cap), animated dropdown with mark-as-read on click
+- **Mobile UI:** Dedicated **Notifications tab** (5th tab) with badge for unread count; color-coded type icons; pull-to-refresh; "Mark all read" with confirmation alert
+- **Verified:** Created notification via ORM → bell badge showed `1` → fetch endpoint returned correct count → `POST /read-all/` flipped `unread_count` to `0` and `total=1, read=True`.
 
 ---
 
 ## 7. Web Frontend Features
 
-### 7.1 Public Landing Page (`/`)
-13-section premium SaaS landing page at [Landing.jsx](frontend/src/pages/Landing.jsx) with announcement bar, sticky nav, animated hero, partner marquee, animated stats counter, dashboard preview, features grid, how-it-works, mobile app showcase, testimonials, pricing tiers, integrations grid, FAQ accordion, multi-column footer.
+### 7.1 Public Landing Page (`/`)  — industry-agnostic
+13-section premium SaaS landing page at [Landing.jsx](frontend/src/pages/Landing.jsx) with:
+- **Announcement bar** highlighting platform extensions (Multi-tenant SaaS · Custom fields · 2FA · Audit logs · Notifications)
+- **Sticky nav** with dark/light theme toggle + Sign In CTA
+- **Hero** — "One CRM for every industry you run" with animated Sparkles icon; subtitle lists industries served
+- **Industries marquee** — infinite scrolling list of 12 industries (Real Estate · Healthcare · Education · Logistics · E-commerce · Manufacturing · Solar · Finance · Insurance · Agencies · B2B Sales · Services)
+- **Animated stats counter** (1245+ leads, 87% conversion, ₹48L revenue, 12-min response)
+- **Dashboard preview** — browser mockup with KPI cards, revenue chart, activity feed (industry-neutral copy)
+- **12-feature grid** with gradient icons + hover effects (Lead Pipeline, Configurable Pipelines, Custom Fields, Deal Management, Real-time Analytics, KYC & Documents, Payment Tracking, Multi-tenant SaaS, Role-based Access, Notifications & Audit, Native Mobile App, Enterprise Security)
+- **How it works** — 4 steps (Capture → Qualify → Close → Install & Retain)
+- **Mobile app showcase** — phone mockup with 3 lead cards from different industries (Solar · Real Estate · Healthcare)
+- **Testimonials** — 3 customers across solar, real estate, healthcare
+- **Pricing** — Free (₹0) · Pro (₹2499/mo) · Enterprise (₹9999/mo)
+- **Integrations grid** — 12 tool tiles
+- **FAQ accordion** — 6 industry-agnostic questions
+- **Final CTA banner** with radial gradient
+- **Multi-column footer**
 
 Authenticated visitors see "Open Dashboard" CTA instead of "Sign In" everywhere.
 
@@ -398,20 +427,32 @@ Sidebar layout:
 
 ## 8. Mobile App Features
 
-### 8.1 Screens
+### 8.1 Screens (5 tabs after auth)
 - **LandingScreen** — first-launch welcome with glowing orbs, hero, card preview, feature rows, Get Started CTA
-- **LoginScreen** — JWT auth
-- **DashboardScreen** — KPIs scoped to user's org, pull-to-refresh
-- **LeadsScreen** — searchable, status-coloured cards
+- **LoginScreen** — JWT auth + **2FA OTP field** that slides in on `requires_2fa: true` from server
+- **DashboardScreen** — KPIs scoped to user's org, pull-to-refresh, greets by username
+- **LeadsScreen** — searchable, status-coloured cards. Shows `product_name` / `product_category` with fallback to legacy `brand_name` / `watt_capacity` (industry-agnostic)
 - **DealsScreen** — stats summary + cards
-- **ProfileScreen** — username + API URL + logout
+- **NotificationsScreen** (NEW) — bell tab with **unread badge** in tab bar. Color-coded type icons (lead_assigned / deal_won / payment_received / task_due). Pull-to-refresh. Tap to mark-read. "Mark all read" button with confirmation Alert.
+- **ProfileScreen** — username with SUPER chip if superuser · **Organization card** (avatar with `primary_color` fill, name, slug, plan badge, status badge, industry) · API URL · Logout
 
-### 8.2 Auth
+### 8.2 Auth context
 - AsyncStorage tokens (`crm_access`, `crm_refresh`, `crm_username`)
 - Auto-refresh on 401 (same pattern as web)
+- Hydrates full user profile via `/api/me/` on login + on app boot — exposes `organization`, `isSuperUser`, `isStaff`, `role`
 - Bootstrapping splash while AsyncStorage loads
+- Login function returns `{ok, requires2fa, error}` so LoginScreen can detect the 2FA challenge
 
-### 8.3 Configurable API URL
+### 8.3 Branding (app.json)
+- Name: "CRM Suite"
+- Slug: `crm-suite`
+- Bundle ID: `in.advancesolar.crmsuite` (iOS + Android)
+- `primaryColor`: yellow `#facc15`
+- `userInterfaceStyle`: dark
+- Splash background: black
+- Android adaptive icon background: yellow
+
+### 8.4 Configurable API URL
 [config.js](mobile/src/config.js) auto-picks based on platform (iOS sim / Android emu / Expo Go LAN IP).
 
 ---
@@ -483,15 +524,71 @@ Enforced server-side via [tenancy.py](backend/backendCRM/api/tenancy.py) `scope_
 
 ## 12. Production Readiness
 
+### 12.1 Server runtime
 - **WhiteNoise** serving compressed + cache-busted static files
 - **Gunicorn** as WSGI server
-- **PostgreSQL** with persistent connections
+- **PostgreSQL** with persistent connections (`CONN_MAX_AGE=60`)
 - **collectstatic** + manifest storage ready
-- **Structured logging** to console (formatter + level driven by `DEBUG`)
-- **HTTPS toggles** env-driven so the same codebase runs local + prod
 - **Media files** served by Django only in `DEBUG=True`; production expects nginx / cloud storage in front
-- **Requirements.txt** UTF-8, includes Pillow + gunicorn + whitenoise + simplejwt
+
+### 12.2 .env-driven configuration
+Settings.py reads from `.env` via `python-decouple`. Every credential is feature-flag-style: missing creds → graceful fallback, never a crash.
+
+| Env var | Purpose |
+|---------|---------|
+| `SECRET_KEY` | Auto-generated 50-char Django secret |
+| `DEBUG`, `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS` | Core Django toggles |
+| `DB_*` | Postgres credentials |
+| `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, `SECURE_HSTS_SECONDS` | HTTPS hardening |
+| `JWT_ACCESS_MINUTES`, `JWT_REFRESH_DAYS` | Token lifetimes |
+| `EMAIL_HOST`, `EMAIL_*` | SMTP — falls back to console backend if blank |
+| `RAZORPAY_KEY_ID/SECRET/WEBHOOK_SECRET` | Billing checkout (when implemented) |
+| `WHATSAPP_PHONE_NUMBER_ID/ACCESS_TOKEN/BUSINESS_ACCOUNT_ID` | WhatsApp Business API |
+| `REDIS_URL`, `CELERY_BROKER_URL` | Automation engine broker |
+| `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | Error tracking (auto-initialises if `sentry-sdk` installed) |
+| `LOG_LEVEL` | DEBUG / INFO / WARNING / ERROR |
+
+### 12.3 Deployment templates
+- [.env.example](backend/backendCRM/.env.example) — copy for local dev
+- [.env.production.example](backend/backendCRM/.env.production.example) — production template with **14-point pre-flight checklist** (generate SECRET_KEY, DEBUG=False, restrict ALLOWED_HOSTS, etc.)
+
+### 12.4 Cross-platform tooling
+- **`.gitattributes`** — normalises all text files to LF in repo (no more "LF will be replaced by CRLF" warnings on Windows)
+- **Requirements.txt** UTF-8 encoded
 - **.gitignore** covers `.env`, `staticfiles/`, `media/`, `node_modules/`, `frontend/dist/`
+
+### 12.5 Structured logging
+- Console handler with formatter `[asctime] LEVEL name message`
+- Root level set from `LOG_LEVEL` env var (defaults: `INFO` in prod, `DEBUG` locally)
+
+---
+
+## 12.5 SEO + PWA (NEW)
+
+### Branded favicon (replaces Vite default)
+- [favicon.svg](frontend/public/favicon.svg) — yellow/amber gradient rounded square with black Zap lightning bolt
+- [apple-touch-icon.svg](frontend/public/apple-touch-icon.svg) — 180×180 iOS home-screen icon
+- [manifest.webmanifest](frontend/public/manifest.webmanifest) — makes the app installable as a PWA (name, short_name, description, theme color, icons, categories)
+
+### Search engine guidance
+- [robots.txt](frontend/public/robots.txt) — allows `/` + `/login`, disallows `/app/`, `/admin/`, `/api/`
+- [sitemap.xml](frontend/public/sitemap.xml) — listed in robots.txt
+- [index.html](frontend/index.html) full SEO header:
+  - `<title>` 60 chars · `<meta description>` 158 chars · keywords
+  - `theme-color` for both light + dark `prefers-color-scheme`
+  - Canonical URL
+  - Apple Touch / PWA meta tags
+  - **Open Graph** (8 tags) — FB/LinkedIn/WhatsApp share previews
+  - **Twitter Cards** (5 tags)
+  - **JSON-LD structured data** — Organization + SoftwareApplication schemas with 3 offer prices (₹0/₹2499/₹9999) and `aggregateRating` so Google can show rich results
+  - DNS preconnect + prefetch hints for hero image CDN
+  - `<noscript>` fallback message
+
+### Mobile app branding ([app.json](mobile/app.json))
+- Name "CRM Suite" · Slug `crm-suite`
+- Bundle ID `in.advancesolar.crmsuite` (iOS + Android)
+- `primaryColor` yellow `#facc15`
+- Dark `userInterfaceStyle` · Black splash · Yellow Android adaptive icon background
 
 ---
 
@@ -549,6 +646,19 @@ Run: `python manage.py shell -c "exec(open('seed_data.py', encoding='utf-8-sig')
 | POST | `/api/notifications/<id>/read/` | 🔒 | Mark one read |
 | POST | `/api/notifications/read-all/` | 🔒 | Mark all read |
 | POST | `/api/pipelines/<id>/reorder/` | 🔒 | Reorder pipeline stages |
+| GET / POST | `/api/score-rules/` | 🔒 | Lead scoring rule CRUD |
+| PATCH / DELETE | `/api/score-rules/<id>/` | 🔒 | Per-rule update / delete |
+| GET | `/api/leads/<id>/score-history/` | 🔒 | Per-lead score change audit trail |
+| GET | `/api/leads/<id>/duplicates/` | 🔒 | Find duplicate leads by phone/email |
+| POST | `/api/leads/merge/` | 🔒 | Merge two leads (target absorbs source) |
+| GET / POST | `/api/sales-targets/` | 🔒 | Sales target CRUD with auto-computed achievement + commission |
+| PATCH / DELETE | `/api/sales-targets/<id>/` | 🔒 | Per-target update / delete |
+| GET | `/api/sales-leaderboard/` | 🔒 | Top performers this month |
+| GET / POST | `/api/saved-views/?module=` | 🔒 | Saved filter views CRUD |
+| PATCH / DELETE | `/api/saved-views/<id>/` | 🔒 | Per-view update / delete |
+| GET / POST | `/api/call-logs/` | 🔒 | Call log CRUD with stats aggregate |
+| GET | `/api/industry-templates/` | 🔒 | List 7 industry presets with stages + fields |
+| POST | `/api/admin/organizations/<id>/apply-template/` | 👑 | Apply template to org (idempotent) |
 | GET | `/api/admin/stats/` | 👑 SuperUser | Platform aggregates (or `?org=<slug>`) |
 | GET / POST | `/api/admin/users/` | 👑 | List / create users across orgs |
 | GET / PATCH / DELETE | `/api/admin/users/<id>/` | 👑 | Per-user management |
@@ -590,43 +700,151 @@ The codebase was transformed from a solar-specific CRM into a generic multi-tena
 ### Phase 3 — Platform Extensions scaffolded
 Eight enterprise SaaS features added as scaffolds (models + endpoints + admin UI) in [migration 0014](backend/backendCRM/api/migrations/):
 
-| Feature | Models | Endpoints | UI | Working? |
-|---------|--------|-----------|------|----------|
-| Automation engine | `AutomationRule` | 4 routes | `/admin/automation` | CRUD ✅ · Execution ❌ (Celery+Redis) |
-| WhatsApp API | `WhatsAppConfig`, `WhatsAppMessage` | 3 routes | `/admin/whatsapp` | Config + log ✅ · Send ❌ |
-| Billing system | `Plan`, `Subscription`, `Invoice` | 4 routes | `/admin/billing` | Subscribe ✅ · Razorpay ❌ |
-| Drag-drop pipelines | (uses existing `Pipeline`/`PipelineStage`) | 1 reorder route | `/admin/pipelines` | ↑↓ reorder ✅ · @dnd-kit ❌ |
-| Custom fields engine | `CustomField`, `CustomFieldValue` | 4 routes | `/admin/custom-fields` | CRUD ✅ · Form rendering ❌ |
-| Audit logs | `AuditLog` | 1 read route | `/admin/audit-logs` | View ✅ · Signals ❌ |
-| 2FA (TOTP) | `TwoFactorSecret` | 4 routes | `/admin/two-factor` | Status + disable ✅ · Setup/verify ❌ |
-| Notifications | `Notification` | 3 routes | Bell icon in Navbar | **Fully working** ✅ |
+| Feature | Models | Endpoints | UI |
+|---------|--------|-----------|------|
+| Automation engine | `AutomationRule` | 4 routes | `/admin/automation` |
+| WhatsApp API | `WhatsAppConfig`, `WhatsAppMessage` | 3 routes | `/admin/whatsapp` |
+| Billing system | `Plan`, `Subscription`, `Invoice` | 4 routes | `/admin/billing` |
+| Drag-drop pipelines | (uses existing `Pipeline`/`PipelineStage`) | 1 reorder route | `/admin/pipelines` |
+| Custom fields engine | `CustomField`, `CustomFieldValue` | 4 routes | `/admin/custom-fields` |
+| Audit logs | `AuditLog` | 1 read route | `/admin/audit-logs` |
+| 2FA (TOTP) | `TwoFactorSecret` | 4 routes | `/admin/two-factor` |
+| Notifications | `Notification` | 3 routes | Bell icon in Navbar |
 
 3 default plans seeded: Free (₹0), Pro (₹2499/mo), Enterprise (₹9999/mo).
+
+### Phase 4 — Platform Extensions completed (5 of 8) + Mobile parity + Landing + SEO
+
+**Promoted from scaffold → fully working:**
+
+| Feature | Status | How |
+|---------|--------|-----|
+| **Audit logs** | 🟢 Working | New [api/signals.py](backend/backendCRM/api/signals.py) — `pre_save` captures snapshots, `post_save` / `post_delete` writes diffs to AuditLog. Login/logout signals included. ApiConfig.ready() registers handlers. |
+| **Notifications** | 🟢 Working | Same signals.py emits `Notification` rows on lead-assigned, deal-won, payment-received, task-due. Web bell polls every 60s; mobile has dedicated tab with badge. |
+| **2FA (TOTP)** | 🟢 Working | Real `pyotp` + `qrcode` packages. `setup/` returns base64 PNG QR + secret. `verify/` validates 6-digit code, emits 8 backup codes. Custom `TwoFactorTokenObtainPairView` enforces 2nd factor on login. Web + mobile login screens both show OTP field on `requires_2fa: true`. |
+| **Custom fields rendering** | 🟢 Working | Lead serializer exposes nested `custom_fields: {slug: value}` dict. POST/PUT accepts same shape. Frontend `<CustomFieldInput>` dynamically renders correct widget per field type. Per-org, per-module. |
+| **Drag-drop pipelines** | 🟢 Working | `@dnd-kit/core` + `@dnd-kit/sortable` installed. AdminPipelines uses `DndContext` + `SortableContext` with PointerSensor + KeyboardSensor. Real drag handles replace ↑↓ buttons. |
+
+**Mobile app brought to feature parity** (Phase 4):
+- AuthContext now fetches `/api/me/` → exposes `organization`, `isSuperUser`, `isStaff`, `role`
+- LoginScreen handles `requires_2fa` with animated OTP field
+- New **NotificationsScreen** (5th tab) — list + pull-to-refresh + mark-read + mark-all-read with confirmation
+- Tab bar shows unread badge (polls every 60s)
+- ProfileScreen shows organization card (avatar, name, slug, plan badge, status badge, industry, SUPER chip for superusers)
+- LeadsScreen uses generic `product_name` / `product_category` with fallback to `brand_name` / `watt_capacity`
+- app.json rebranded: name "CRM Suite", slug `crm-suite`, bundle ID `in.advancesolar.crmsuite`, primary color yellow, dark UI style, splash on black
+
+**Landing page de-soldered:**
+- Hero pill "India's #1 solar CRM" → "Multi-industry CRM platform"
+- Hero headline "The CRM that runs India's solar businesses" → "One CRM for every industry you run"
+- Partner marquee: Gautam/Waaree/Adani brands → list of 12 industries served
+- Features grid: 9 → **12 features** (added Configurable Pipelines, Custom Fields, Multi-tenant SaaS)
+- Testimonials diversified: solar founder + real-estate sales head + healthcare director
+- FAQs replaced solar-brand-specific Q with industry-coverage + custom-field + RBAC questions
+- Phone mockup lead cards: Waaree/Adani/Gautam → Solar/Real-Estate/Healthcare mix
+- Final CTA + footer + activity feed copy generalized
+
+**SEO + branding overhaul:**
+- Branded `favicon.svg` (yellow/amber lightning bolt) replaces Vite default
+- `apple-touch-icon.svg` for iOS
+- `manifest.webmanifest` makes app installable as PWA
+- `robots.txt` allows landing/login, disallows `/app/`, `/admin/`, `/api/`
+- `sitemap.xml`
+- `index.html` full SEO overhaul: title (60 char), description (158 char), keywords, Open Graph (8 tags), Twitter Cards (5 tags), JSON-LD structured data (Organization + SoftwareApplication with offers + ratings), theme-color (light/dark), DNS preconnect hints, `<noscript>` fallback
+
+**Production-ready .env:**
+- Auto-generated real 50-char `SECRET_KEY`
+- New env vars wired into settings.py: `EMAIL_*`, `RAZORPAY_*`, `WHATSAPP_*`, `REDIS_URL`, `CELERY_BROKER_URL`, `SENTRY_DSN`, `LOG_LEVEL`
+- New `.env.production.example` template with 14-point pre-flight checklist
+- Email falls back to console backend when SMTP unconfigured
+- Sentry auto-initialises if DSN provided + `sentry-sdk` installed
+
+**.gitattributes** added for cross-platform line-ending normalisation (LF in repo, no more "LF will be replaced by CRLF" warnings on Windows).
+
+**Bug fix:** `LeadOtherSerializer` (used for non-admin user roles) was missing new fields (`product_name`, `product_category`, `tags`, `notes`, `base_price`, `pipeline`) — added so SALES users see the same data as admins.
+
+### Phase 5 — Enterprise Foundation Pack (6 new features)
+
+Shipped in [migration 0015](backend/backendCRM/api/migrations/) — 5 new models + `score` + `priority` + `last_activity_at` fields on Leads.
+
+| # | Feature | Models | Endpoints | UI | Status |
+|---|---------|--------|-----------|------|--------|
+| 1 | **Lead Scoring** | `LeadScoreRule`, `LeadScoreHistory` + score/priority on Leads | `/api/score-rules/*` · `/api/leads/<id>/score-history/` | `/admin/lead-scoring` + priority badge in lead list + score progress bar in modal | 🟢 Working |
+| 2 | **Duplicate Detection** | (no model — live phone/email match) | `/api/leads/<id>/duplicates/` · `/api/leads/merge/` | Warning banner inside lead edit modal with one-click merge | 🟢 Working |
+| 3 | **Sales Targets & Commissions** | `SalesTarget` | `/api/sales-targets/*` · `/api/sales-leaderboard/` | `/admin/sales-targets` with KPI cards + monthly leaderboard + per-user target progress bars | 🟢 Working |
+| 4 | **Saved Views** | `SavedView` | `/api/saved-views/*` | `/admin/saved-views` — module tabs, JSON filter editor, share-with-team toggle | 🟢 Working |
+| 5 | **Call Logs & Voice Notes** | `CallLog` | `/api/call-logs/` | `/admin/call-logs` — KPI cards (total · connected · converted · talk time), call list, "Log call" modal with outcome + next action | 🟢 Working |
+| 6 | **Industry Templates** | static fixture in `api/industry_templates.py` | `/api/industry-templates/` · `/api/admin/organizations/<id>/apply-template/` | One-click "Apply template" button on each Organization card | 🟢 Working |
+
+**Lead Scoring engine** (signal-driven):
+- 13 event types: `lead_created` (+5), `status_changed` (+3), `deal_created` (+15), `deal_won` (+40), `payment_received` (+20), `document_uploaded` (+5), `task_completed` (+3), `email_opened` (+2), `email_replied` (+10), `meeting_booked` (+15), `quotation_viewed` (+8), `payment_initiated` (+25), `inactivity_penalty` (-5)
+- Score range: 0–100 (clamped)
+- Priority auto-derived: **HOT ≥ 70 · WARM 40–69 · COLD < 40**
+- Every score change written to `LeadScoreHistory` with `{points_delta, score_before, score_after, reason}` — full audit trail visible per lead
+- Signals: `lead_created`, `status_changed`, `deal_created`, `deal_won`, `payment_received`, `document_uploaded` are wired live
+
+**Duplicate detection** algorithm: matches by **last 10 digits of phone** OR **case-insensitive email** within the same org. Merge endpoint reparents Deal, Document, CallLog rows to the target, bumps target score by half of source's score, appends source notes to target, then deletes source.
+
+**Sales leaderboard**: top 20 performers in current month by won-deal value. Sales targets auto-compute achievement and commission earned (target × commission_pct) without manual entry.
+
+**Industry templates** (7 industries — General · Solar · Real Estate · Healthcare · Insurance · Logistics · Education):
+- Each defines: lead pipeline stages, deal pipeline stages, lead-specific custom fields, default 13 scoring rules
+- Idempotent — `apply_template_to_org(org, slug)` only adds missing items (by slug). Use `replace_pipelines=True` to reset.
+- Real Estate template adds: `property_type` (Apartment/Villa/Plot/Commercial), `bhk`, `carpet_area_sqft`, `budget_lakhs`, `possession_date`
+- Healthcare template adds: `patient_id`, `age`, `specialty`, `insurance_provider`, `emergency`
+- Insurance template adds: `policy_type`, `sum_assured`, `premium`, `renewal_date`, `nominee`
+- Logistics, Education, Solar all have their own field sets
+
+**Verified live:**
+- ✅ Applied REAL_ESTATE template to default org → 13 scoring rules + 3 new stages + 5 custom fields seeded
+- ✅ Created lead → auto +5 score, priority COLD
+- ✅ Updated status NEW → CONTACTED → +3 = score 8
+- ✅ Score history endpoint returns full event log with deltas
+- ✅ Duplicate detection found 2nd lead with same phone (matching by last 10 digits)
+- ✅ Sales leaderboard shows priya.sales/rakesh.sales/etc. with won_count + won_value
 
 ---
 
 ## 16. Out of Scope (deferred to future phases)
 
-These items still need work (most are "scaffold exists but execution-layer not wired"):
+### 16.1 Scaffolds awaiting external service credentials
+- **Automation engine execution** — needs Celery + Redis. Set `REDIS_URL` + `CELERY_BROKER_URL`, install `celery + redis + django-celery-beat`, write rule dispatcher
+- **WhatsApp send** — needs Meta WhatsApp Business Cloud API account + phone verification + template approval. Set `WHATSAPP_*` env vars, then add HTTP adapter calling `graph.facebook.com/v18.0/<phone_number_id>/messages`
+- **Razorpay checkout** — needs Razorpay account + test/live keys. Set `RAZORPAY_*` env vars, `pip install razorpay`, implement `/api/billing/checkout/` + `/api/billing/webhook/`
 
-**Wiring left for scaffolds in section 6.5:**
-- **Automation execution** — install Celery + Redis, wire signal-based dispatcher to read `AutomationRule.actions` JSON and execute them
-- **WhatsApp send** — sign up Meta WhatsApp Business Cloud API, drop in HTTP adapter that calls `https://graph.facebook.com/v18.0/<phone_number_id>/messages`
-- **Razorpay checkout** — `pip install razorpay`, add `RAZORPAY_KEY_ID/SECRET` to `.env`, implement webhook `/api/billing/webhook/` for payment-status updates
-- **Custom field rendering** — dynamic form-input generator on `/app/leads/` create/edit modals, persist values to `CustomFieldValue` rows
-- **Audit signals** — wire `post_save`/`post_delete` Django signals on Leads/Deal/User/Payment to call `AuditLog.objects.create()` with serialized diff
-- **2FA enforcement** — `pip install pyotp qrcode`, generate base32 secret + otpauth:// URI, render QR, gate JWT issuance on TOTP verification
-- **Drag-drop with @dnd-kit** — `npm install @dnd-kit/core @dnd-kit/sortable`, replace ↑↓ buttons in `AdminPipelines` with `<DndContext>`
-- **Notification producers** — emit `Notification.objects.create()` on Lead assignment, Deal won, Task overdue, Payment received
+### 16.2 Enterprise upgrade list (16 of 22 still pending)
+Phase 5 shipped 6 of the 22 enterprise features the user requested. The other 16 are documented below — each is a self-contained future phase.
 
-**Not yet started:**
-- **Granular RBAC editor** — current roles are fixed strings; no per-org permission overrides
+| # | Feature | Notes |
+|---|---------|-------|
+| 2 | SLA management + escalations | Needs Celery scheduler for timers |
+| 3 | Drag-drop form builder + public/embeddable forms | Biggest UI work (5–7 days) |
+| 5 | Knowledge base / help center | CMS-like with markdown + search |
+| 6 | Support ticket / helpdesk system | Pairs with SLA |
+| 7 | Cloud storage integrations (Google Drive / Dropbox / OneDrive) | OAuth flows per provider |
+| 8 | Advanced filter builder (nested AND/OR query AST) | Server-side recursive query parser |
+| 10 | Import / export engine (CSV / Excel / PDF with field mapping) | openpyxl + reportlab |
+| 12 | Lead distribution engine (round-robin / territory / workload) | Pairs with scoring (already shipped) |
+| 13 | E-signature workflow | PDF stamping or DocuSign integration |
+| 15 | Multi-language (i18n) — EN / Hindi + RTL ready | react-intl + Django i18n |
+| 17 | Custom dashboard builder (drag-drop widgets) | react-grid-layout |
+| 18 | Approval workflows (manager / finance / discount) | State machine |
+| 19 | Backup & restore system | Django dumpdata + scheduled S3 sync |
+| 20 | Session & device management (remote logout) | Track JWT jti per device |
+| 21 | Plugin / extensions marketplace | Architecture-heavy (10–15 days) |
+| – | Lead scoring AI/ML predictions | Future ML pass on top of existing scoring engine |
+
+### 16.3 Other deferrals (mobile + infra)
+- **Mobile theme toggle** (light/dark) — web has it, mobile is dark-only
+- **Mobile pipeline-driven status colors** — uses default palette
+- **Mobile 2FA enrollment UI** — login challenge works, but users must enroll via web
+- **Mobile Lead create/edit form with custom field rendering** — mobile is read-only for leads
 - **Mobile push notifications** (Expo Notifications)
 - **Mobile offline-mode caching**
-- **White-label theming per org driving UI tokens** — colors stored but not yet applied
+- **Granular RBAC editor** — current roles are fixed strings; no per-org permission overrides
+- **White-label theming per org driving UI tokens** — colors stored on Organization but not yet applied
 - **Customer-facing portal** (separate URL for end customers)
 - **Tally / accounting export**
-- **Automated lead-scoring / ML predictions**
 - **Public Swagger / OpenAPI docs**
 - **E2E tests** (Playwright / Detox)
 - **CI/CD pipeline + Docker setup**

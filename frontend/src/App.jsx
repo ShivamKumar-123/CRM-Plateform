@@ -1,7 +1,15 @@
 import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router-dom'
 import Layout from './Layout'
-import Landing from './pages/Landing'
 import Dashboard from './pages/Dashboard'
+
+// Marketing site
+import MarketingLayout from './layouts/MarketingLayout.jsx'
+import Home from './pages/marketing/Home.jsx'
+import Features from './pages/marketing/Features.jsx'
+import Industries from './pages/marketing/Industries.jsx'
+import Pricing from './pages/marketing/Pricing.jsx'
+import About from './pages/marketing/About.jsx'
+import Contact from './pages/marketing/Contact.jsx'
 import Leads from './pages/Leads'
 import Customers from './pages/Customers'
 import Reports from './pages/Reports'
@@ -30,11 +38,24 @@ import AdminPipelines from './pages/admin/AdminPipelines.jsx'
 import AdminCustomFields from './pages/admin/AdminCustomFields.jsx'
 import AdminAuditLogs from './pages/admin/AdminAuditLogs.jsx'
 import AdminTwoFactor from './pages/admin/AdminTwoFactor.jsx'
+import AdminLeadScoring from './pages/admin/AdminLeadScoring.jsx'
+import AdminSalesTargets from './pages/admin/AdminSalesTargets.jsx'
+import AdminCallLogs from './pages/admin/AdminCallLogs.jsx'
+import AdminSavedViews from './pages/admin/AdminSavedViews.jsx'
 
 const router = createBrowserRouter(
   createRoutesFromElements(
     <>
-      <Route path='/' element={<Landing />} />
+      {/* Marketing site — shared layout with sticky nav + footer */}
+      <Route path='/' element={<MarketingLayout />}>
+        <Route index element={<Home />} />
+        <Route path='features' element={<Features />} />
+        <Route path='industries' element={<Industries />} />
+        <Route path='pricing' element={<Pricing />} />
+        <Route path='about' element={<About />} />
+        <Route path='contact' element={<Contact />} />
+      </Route>
+
       <Route path='/login' element={<Login />} />
 
       {/* Regular user app */}
@@ -76,6 +97,10 @@ const router = createBrowserRouter(
         <Route path='billing' element={<AdminBilling />} />
         <Route path='audit-logs' element={<AdminAuditLogs />} />
         <Route path='two-factor' element={<AdminTwoFactor />} />
+        <Route path='lead-scoring' element={<AdminLeadScoring />} />
+        <Route path='sales-targets' element={<AdminSalesTargets />} />
+        <Route path='call-logs' element={<AdminCallLogs />} />
+        <Route path='saved-views' element={<AdminSavedViews />} />
         <Route path='reports' element={<AdminReports />} />
         <Route path='system' element={<AdminSystem />} />
       </Route>

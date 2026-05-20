@@ -7,6 +7,7 @@ export function AuthProvider({ children }) {
   const [bootstrapping, setBootstrapping] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState("");
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -16,16 +17,23 @@ export function AuthProvider({ children }) {
       if (access) {
         setIsAuthenticated(true);
         setUsername(uname || "");
-        api.refresh().catch(() => {});
+        // Best-effort hydration of full profile
+        try {
+          const me = await api.getMe();
+          setUser(me);
+        } catch (_) {
+          // 401 — refresh might recover, AuthContext re-uses tokens via refresh flow
+          api.refresh().catch(() => logout());
+        }
       }
       setBootstrapping(false);
     })();
   }, []);
 
-  async function login(uname, password) {
+  async function login(uname, password, otp) {
     setLoading(true);
     try {
-      const data = await api.login(uname, password);
+      const data = await api.login(uname, password, otp);
       await tokenStore.set({
         access: data.access,
         refresh: data.refresh,
@@ -33,9 +41,27 @@ export function AuthProvider({ children }) {
       });
       setUsername(uname);
       setIsAuthenticated(true);
+
+      // Hydrate full profile
+      try {
+        const me = await api.getMe();
+        setUser(me);
+      } catch (_) {
+        /* protected screens will retry on their own */
+      }
+
       return { ok: true };
     } catch (err) {
-      return { ok: false, error: err.message || "Login failed" };
+      // Detect 2FA challenge — server returns 401 with detail.requires_2fa = true
+      const requires2fa =
+        err?.data?.detail?.requires_2fa === true ||
+        err?.data?.detail?.requires_2fa === "True" ||
+        err?.data?.requires_2fa === true;
+      return {
+        ok: false,
+        requires2fa,
+        error: err?.message || "Login failed",
+      };
     } finally {
       setLoading(false);
     }
@@ -44,12 +70,25 @@ export function AuthProvider({ children }) {
   async function logout() {
     await tokenStore.clear();
     setUsername("");
+    setUser(null);
     setIsAuthenticated(false);
   }
 
   return (
     <AuthContext.Provider
-      value={{ bootstrapping, isAuthenticated, username, loading, login, logout }}
+      value={{
+        bootstrapping,
+        isAuthenticated,
+        username,
+        user,
+        organization: user?.organization || null,
+        isSuperUser: !!user?.is_superuser,
+        isStaff: !!user?.is_staff,
+        role: user?.role,
+        loading,
+        login,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>

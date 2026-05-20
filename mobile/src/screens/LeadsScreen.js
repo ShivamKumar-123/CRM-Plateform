@@ -120,13 +120,43 @@ function LeadCard({ lead }) {
           </Text>
           <Text style={styles.muted}>{lead.phone}</Text>
         </View>
-        <StatusBadge status={lead.status} />
+        <View style={{ alignItems: "flex-end", gap: 4 }}>
+          {lead.priority && (
+            <View
+              style={{
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderRadius: 999,
+                backgroundColor:
+                  lead.priority === "HOT"  ? colors.red :
+                  lead.priority === "WARM" ? colors.yellow :
+                                             colors.sky,
+              }}
+            >
+              <Text style={{
+                fontSize: 9,
+                fontWeight: "800",
+                color: lead.priority === "HOT" ? "#fff" : "#000",
+                letterSpacing: 0.5,
+              }}>
+                {lead.priority} · {lead.score ?? 0}
+              </Text>
+            </View>
+          )}
+          <StatusBadge status={lead.status} />
+        </View>
       </View>
 
       <View style={styles.metaRow}>
         <Meta icon="location-outline" text={lead.city || "—"} />
-        <Meta icon="cube-outline" text={lead.brand_name || "—"} />
-        <Meta icon="flash-outline" text={lead.watt_capacity || "—"} />
+        <Meta
+          icon="cube-outline"
+          text={lead.product_name || lead.brand_name || "—"}
+        />
+        <Meta
+          icon="pricetag-outline"
+          text={lead.product_category || lead.watt_capacity || "—"}
+        />
       </View>
 
       <View style={styles.footer}>

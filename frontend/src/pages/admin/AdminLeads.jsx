@@ -7,6 +7,7 @@ import { api } from "../../lib/api.js";
 import {
   modalInput, Field, ModalShell, ErrorBanner, StatusBadge, formatINR,
   LEAD_SOURCE_CHOICES, FALLBACK_LEAD_STATUS_CHOICES, LEAD_STATUS_PALETTE,
+  PRIORITY_PALETTE,
 } from "./_shared.jsx";
 import { Header } from "./AdminUsers.jsx";
 
@@ -120,6 +121,7 @@ export default function AdminLeads() {
               <th className="px-5 py-4">Category</th>
               <th className="px-5 py-4 text-right">Value ₹</th>
               <th className="px-5 py-4">Assigned</th>
+              <th className="px-5 py-4">Priority</th>
               <th className="px-5 py-4">Status</th>
               <th className="px-5 py-4 text-right">Actions</th>
             </tr>
@@ -135,6 +137,12 @@ export default function AdminLeads() {
                 <td className="px-5 py-4 text-gray-300">{l.product_category || l.watt_capacity || "—"}</td>
                 <td className="px-5 py-4 text-right text-gray-300">{formatINR(l.base_price)}</td>
                 <td className="px-5 py-4 text-gray-300">{l.assigned_to_username || "—"}</td>
+                <td className="px-5 py-4">
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={l.priority} palette={PRIORITY_PALETTE} />
+                    <span className="text-xs text-gray-500 font-mono">{l.score ?? 0}</span>
+                  </div>
+                </td>
                 <td className="px-5 py-4"><StatusBadge status={l.status} palette={LEAD_STATUS_PALETTE} /></td>
                 <td className="px-5 py-4 text-right">
                   <div className="inline-flex gap-2">
@@ -175,6 +183,23 @@ export default function AdminLeads() {
 
 function LeadModal({ lead, users, statusChoices, customFields = [], onClose, onSaved }) {
   const isEdit = !!lead;
+  const [duplicates, setDuplicates] = useState([]);
+
+  // Fetch duplicates when editing
+  useEffect(() => {
+    if (!lead?.id) return;
+    api.getLeadDuplicates(lead.id)
+      .then((d) => setDuplicates(d?.duplicates || []))
+      .catch(() => {});
+  }, [lead?.id]);
+
+  const mergeAndClose = async (sourceId) => {
+    if (!confirm(`Merge lead #${sourceId} INTO this lead (#${lead.id})? The other lead will be deleted.`)) return;
+    try {
+      await api.mergeLeads(lead.id, sourceId);
+      onSaved();
+    } catch (e) { alert(e.message); }
+  };
   const [form, setForm] = useState({
     name: lead?.name || "",
     email: lead?.email || "",
@@ -239,6 +264,49 @@ function LeadModal({ lead, users, statusChoices, customFields = [], onClose, onS
   return (
     <ModalShell title={isEdit ? `Edit lead — ${lead.name}` : "Create new lead"} onClose={onClose} size="lg">
       {error && <ErrorBanner msg={error} />}
+
+      {isEdit && duplicates.length > 0 && (
+        <div className="rounded-xl bg-orange-400/10 border border-orange-400/30 p-3 mb-4">
+          <p className="text-sm font-bold text-orange-300 mb-2 flex items-center gap-2">
+            ⚠ {duplicates.length} possible duplicate{duplicates.length !== 1 ? "s" : ""} found (same phone or email)
+          </p>
+          <div className="space-y-1">
+            {duplicates.map((d) => (
+              <div key={d.id} className="flex items-center justify-between gap-2 text-xs bg-white/5 rounded-lg px-3 py-2">
+                <span className="text-gray-300 truncate">
+                  #{d.id} <strong>{d.name}</strong> · {d.phone} · {d.city || "—"} · status: {d.status}
+                </span>
+                <button
+                  onClick={() => mergeAndClose(d.id)}
+                  className="px-3 py-1 rounded bg-orange-400/20 text-orange-300 text-[10px] font-bold hover:bg-orange-400/30"
+                >
+                  Merge into this
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isEdit && lead && (
+        <div className="rounded-xl bg-white/5 border border-white/10 p-3 mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+              lead.priority === "HOT" ? "bg-red-500 text-white" :
+              lead.priority === "WARM" ? "bg-yellow-400 text-black" :
+              "bg-sky-400 text-black"
+            }`}>{lead.priority || "COLD"}</span>
+            <div>
+              <p className="text-sm font-semibold text-white">Score: {lead.score ?? 0}/100</p>
+              <p className="text-[10px] text-gray-500">Auto-updated by activity events</p>
+            </div>
+          </div>
+          <div className="w-32 h-2 rounded-full bg-white/5 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-sky-400 via-yellow-400 to-red-500"
+              style={{ width: `${Math.min(100, lead.score || 0)}%` }} />
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Name *">

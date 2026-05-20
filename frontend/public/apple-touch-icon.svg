@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+  <!-- iOS shows this on home screen. Solid rounded rect, no transparency. -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"  stop-color="#facc15"/>
+      <stop offset="50%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" rx="40" ry="40" fill="url(#bg)"/>
+  <!-- Lightning bolt, scaled to ~60% canvas -->
+  <path
+    d="M105 26 L52 102 L82 102 L75 156 L128 80 L98 80 Z"
+    fill="#000000"
+  />
+</svg>

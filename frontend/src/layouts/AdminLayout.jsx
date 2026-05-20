@@ -7,6 +7,7 @@ import {
   ExternalLink, Building2,
   GitBranch, Sliders, Zap, MessageSquare, IndianRupee,
   History, ShieldCheck,
+  Target, Trophy, Phone, Bookmark,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 import ThemeToggle from "../components/ThemeToggle.jsx";
@@ -18,6 +19,11 @@ const navItems = [
   { icon: UserPlus, label: "Leads", path: "/admin/leads" },
   { icon: Handshake, label: "Deals", path: "/admin/deals" },
   { icon: UserCheck, label: "Customers", path: "/admin/customers" },
+  { divider: true, label: "Sales" },
+  { icon: Target, label: "Lead Scoring", path: "/admin/lead-scoring" },
+  { icon: Trophy, label: "Sales Targets", path: "/admin/sales-targets" },
+  { icon: Phone, label: "Call Logs", path: "/admin/call-logs" },
+  { icon: Bookmark, label: "Saved Views", path: "/admin/saved-views" },
   { divider: true, label: "Platform" },
   { icon: GitBranch, label: "Pipelines", path: "/admin/pipelines" },
   { icon: Sliders, label: "Custom Fields", path: "/admin/custom-fields" },

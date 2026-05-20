@@ -169,8 +169,58 @@ SIMPLE_JWT = {
 }
 
 # ---------------------------------------------------------------------------
+# Email (transactional)
+# ---------------------------------------------------------------------------
+EMAIL_HOST = config("EMAIL_HOST", default="")
+EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="webmaster@localhost")
+# If EMAIL_HOST is blank, fall back to console backend (prints emails to stdout in dev)
+EMAIL_BACKEND = (
+    "django.core.mail.backends.smtp.EmailBackend"
+    if EMAIL_HOST
+    else "django.core.mail.backends.console.EmailBackend"
+)
+
+# ---------------------------------------------------------------------------
+# Integration credentials (read but not yet enforced — feature-flag style)
+# ---------------------------------------------------------------------------
+RAZORPAY_KEY_ID         = config("RAZORPAY_KEY_ID", default="")
+RAZORPAY_KEY_SECRET     = config("RAZORPAY_KEY_SECRET", default="")
+RAZORPAY_WEBHOOK_SECRET = config("RAZORPAY_WEBHOOK_SECRET", default="")
+
+WHATSAPP_PHONE_NUMBER_ID     = config("WHATSAPP_PHONE_NUMBER_ID", default="")
+WHATSAPP_ACCESS_TOKEN        = config("WHATSAPP_ACCESS_TOKEN", default="")
+WHATSAPP_BUSINESS_ACCOUNT_ID = config("WHATSAPP_BUSINESS_ACCOUNT_ID", default="")
+
+REDIS_URL          = config("REDIS_URL", default="")
+CELERY_BROKER_URL  = config("CELERY_BROKER_URL", default=REDIS_URL)
+
+SENTRY_DSN         = config("SENTRY_DSN", default="")
+SENTRY_ENVIRONMENT = config("SENTRY_ENVIRONMENT", default="development")
+
+# Initialise Sentry if DSN is provided. Optional package — skip silently if not installed.
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            environment=SENTRY_ENVIRONMENT,
+            integrations=[DjangoIntegration()],
+            traces_sample_rate=0.1,
+            send_default_pii=False,
+        )
+    except ImportError:
+        pass  # `pip install sentry-sdk` when you want it active
+
+# ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
+LOG_LEVEL = config("LOG_LEVEL", default="INFO" if not DEBUG else "DEBUG")
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -188,7 +238,7 @@ LOGGING = {
     },
     "root": {
         "handlers": ["console"],
-        "level": "INFO" if not DEBUG else "DEBUG",
+        "level": LOG_LEVEL,
     },
     "loggers": {
         "django.request": {

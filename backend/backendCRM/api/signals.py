@@ -12,10 +12,71 @@ from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 
+from django.utils import timezone
+
 from .models import (
-    Leads, Deal, Payment, Task, User, Organization,
+    Leads, Deal, Payment, Task, User, Organization, Document,
     AuditLog, Notification,
+    LeadScoreRule, LeadScoreHistory,
 )
+
+
+# ─────────────────────────────────────────────────────────────────
+# Lead Scoring engine
+# ─────────────────────────────────────────────────────────────────
+
+PRIORITY_HOT_THRESHOLD  = 70
+PRIORITY_WARM_THRESHOLD = 40
+
+
+def _classify_priority(score):
+    if score >= PRIORITY_HOT_THRESHOLD:
+        return "HOT"
+    if score >= PRIORITY_WARM_THRESHOLD:
+        return "WARM"
+    return "COLD"
+
+
+def apply_score_event(lead, event, reason=""):
+    """
+    Apply a scoring rule's points to a lead. Records LeadScoreHistory and
+    updates lead.score + lead.priority + lead.last_activity_at.
+    Never crashes — scoring is best-effort.
+    """
+    if not lead or not lead.organization_id:
+        return
+
+    try:
+        rule = LeadScoreRule.objects.filter(
+            organization=lead.organization,
+            event=event,
+            is_active=True,
+        ).first()
+        if not rule or rule.points == 0:
+            # Still bump last_activity_at so inactivity penalty resets
+            Leads.objects.filter(pk=lead.pk).update(last_activity_at=timezone.now())
+            return
+
+        before = lead.score or 0
+        after = max(0, min(100, before + rule.points))  # clamp 0..100
+        new_priority = _classify_priority(after)
+
+        Leads.objects.filter(pk=lead.pk).update(
+            score=after,
+            priority=new_priority,
+            last_activity_at=timezone.now(),
+        )
+
+        LeadScoreHistory.objects.create(
+            lead=lead,
+            event=event,
+            points_delta=rule.points,
+            score_before=before,
+            score_after=after,
+            reason=reason or rule.description or "",
+        )
+    except Exception:
+        pass
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -113,6 +174,7 @@ def lead_pre_save(sender, instance, **kwargs):
 def lead_post_save(sender, instance, created, **kwargs):
     if created:
         _log("CREATE", instance, organization=instance.organization)
+        apply_score_event(instance, "lead_created")
         # Notification: lead assigned to someone on creation
         if instance.assigned_to_id:
             _notify(
@@ -140,6 +202,10 @@ def lead_post_save(sender, instance, created, **kwargs):
                     link="/app/leads",
                     organization=instance.organization,
                 )
+            # Score event: status changed
+            if "status" in changes:
+                apply_score_event(instance, "status_changed",
+                                   reason=f"{changes['status']['from']} → {changes['status']['to']}")
 
 
 @receiver(post_delete, sender=Leads)
@@ -161,6 +227,8 @@ def deal_pre_save(sender, instance, **kwargs):
 def deal_post_save(sender, instance, created, **kwargs):
     if created:
         _log("CREATE", instance, organization=instance.organization)
+        if instance.lead_id:
+            apply_score_event(instance.lead, "deal_created")
     else:
         old_snapshot = getattr(instance, "_pre_save_snapshot", None)
         if old_snapshot:
@@ -179,6 +247,8 @@ def deal_post_save(sender, instance, created, **kwargs):
                         link="/app/deals",
                         organization=instance.organization,
                     )
+                if instance.lead_id:
+                    apply_score_event(instance.lead, "deal_won")
 
 
 @receiver(post_delete, sender=Deal)
@@ -204,6 +274,8 @@ def payment_post_save(sender, instance, created, **kwargs):
                 link="/app/deals",
                 organization=org,
             )
+        if instance.deal_id and instance.deal.lead_id:
+            apply_score_event(instance.deal.lead, "payment_received")
     else:
         _log("UPDATE", instance, organization=org)
 
@@ -231,6 +303,14 @@ def task_post_save(sender, instance, created, **kwargs):
                 link="/app",
                 organization=instance.organization,
             )
+
+
+# Document upload → lead score event
+@receiver(post_save, sender=Document)
+def document_post_save(sender, instance, created, **kwargs):
+    if created and instance.lead_id:
+        apply_score_event(instance.lead, "document_uploaded",
+                          reason=f"Uploaded {instance.get_document_type_display()}")
 
 
 @receiver(post_delete, sender=Task)
