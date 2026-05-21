@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import {
   Zap,
   ArrowRight,
@@ -20,10 +20,12 @@ import {
   MessageSquare, IndianRupee, Bell, LayoutDashboard,
   Filter, Users2, Database, Cloud, Globe, Puzzle, Monitor, Cpu,
   GitBranch, Target, Trophy, Layers,
+  Menu, X, Twitter, Linkedin, Heart,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 import CTAModal from "../components/CTAModal.jsx";
 import Particles from "../components/Particles.jsx";
+import ThemeToggle from "../components/ThemeToggle.jsx";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -48,62 +50,173 @@ function Aurora() {
 
 function Nav({ user }) {
   const [scrolled, setScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeHash, setActiveHash] = useState("#features");
+  const navLinks = [
+    { href: "#features", label: "Features" },
+    { href: "#workflow", label: "Workflow" },
+    { href: "#pricing",  label: "Pricing" },
+    { href: "#faq",      label: "FAQ" },
+  ];
+
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", onScroll);
+    const onScroll = () => {
+      setScrolled(window.scrollY > 20);
+      // Lightweight scroll-spy.
+      const offsets = navLinks.map(l => {
+        const el = document.querySelector(l.href);
+        return el ? { hash: l.href, top: el.getBoundingClientRect().top } : null;
+      }).filter(Boolean);
+      const current = offsets.filter(o => o.top <= 140).slice(-1)[0];
+      if (current) setActiveHash(current.hash);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
-    <motion.nav
-      initial={{ y: -40, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className={`fixed top-0 inset-x-0 z-50 transition-all ${
-        scrolled
-          ? "backdrop-blur-xl bg-black/70 border-b border-white/5"
-          : "bg-transparent"
-      }`}
-    >
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center shadow-lg shadow-yellow-500/30">
-            <Zap size={18} className="text-black fill-black" />
-          </div>
-          <span className="font-bold tracking-wider text-white">CRM<span className="text-yellow-400">.</span>demo</span>
-        </Link>
+    <>
+      <motion.nav
+        initial={{ y: -40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
+          scrolled
+            ? "backdrop-blur-2xl bg-black/60 border-b border-yellow-500/15 shadow-[0_2px_30px_rgba(250,204,21,0.05)]"
+            : "bg-transparent"
+        }`}
+      >
+        {/* Animated top hairline */}
+        <div className={`absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent transition-opacity duration-500 ${scrolled ? "opacity-100" : "opacity-0"}`} />
 
-        <div className="hidden md:flex items-center gap-8 text-sm text-gray-300">
-          <a href="#features" className="hover:text-white transition">Features</a>
-          <a href="#workflow" className="hover:text-white transition">Workflow</a>
-          <a href="#pricing" className="hover:text-white transition">Pricing</a>
-          <a href="#faq" className="hover:text-white transition">FAQ</a>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {user ? (
-            <Link
-              to="/app"
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-semibold text-sm hover:scale-105 transition"
-            >
-              Open App
-            </Link>
-          ) : (
-            <>
-              <Link to="/login" className="text-sm text-gray-300 hover:text-white">
-                Sign in
-              </Link>
-              <Link
-                to="/signup"
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-semibold text-sm hover:scale-105 transition shadow-lg shadow-yellow-500/20"
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <div className="relative">
+              <div
+                className="w-10 h-10 rounded-2xl bg-gradient-to-br from-yellow-300 via-yellow-500 to-amber-600 flex items-center justify-center border border-yellow-300/40 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300"
+                style={{ boxShadow: "0 0 24px rgba(250,204,21,0.55), inset 0 1px 0 rgba(255,255,255,0.35)" }}
               >
-                Try Demo
+                <Zap size={17} className="text-black fill-black" />
+              </div>
+              <div className="absolute inset-0 rounded-2xl bg-yellow-400/40 blur-md opacity-60 group-hover:opacity-100 transition-opacity -z-10" />
+            </div>
+            <div className="leading-none">
+              <div className="font-black tracking-wider text-white">
+                CRM<span className="text-yellow-400">.</span>demo
+              </div>
+              <div className="text-[9px] tracking-[0.25em] text-gray-500 mt-1 hidden sm:block">
+                LIVE · IN BROWSER
+              </div>
+            </div>
+          </Link>
+
+          {/* Desktop nav */}
+          <div className="hidden md:flex items-center gap-1 px-2 py-1.5 rounded-full bg-white/[0.04] border border-white/10 backdrop-blur-sm">
+            {navLinks.map((l) => {
+              const isActive = activeHash === l.href;
+              return (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  className={`relative px-4 py-1.5 rounded-full text-sm transition-all ${
+                    isActive ? "text-black font-semibold" : "text-gray-300 hover:text-white"
+                  }`}
+                >
+                  {isActive && (
+                    <motion.span
+                      layoutId="demoNavPill"
+                      className="absolute inset-0 rounded-full bg-gradient-to-r from-yellow-400 to-amber-400 shadow-[0_4px_20px_rgba(250,204,21,0.4)] -z-10"
+                      transition={{ type: "spring", stiffness: 300, damping: 26 }}
+                    />
+                  )}
+                  {l.label}
+                </a>
+              );
+            })}
+          </div>
+
+          {/* Right side */}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            {user ? (
+              <Link
+                to="/app"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-500 text-black font-bold text-sm shadow-[0_8px_30px_rgba(250,204,21,0.35)] hover:shadow-[0_8px_40px_rgba(250,204,21,0.6)] hover:scale-[1.04] transition-all group"
+              >
+                Open App
+                <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
               </Link>
-            </>
-          )}
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="hidden sm:inline-flex items-center px-3 py-2 rounded-xl text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-all"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  to="/signup"
+                  className="inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-500 text-black font-bold text-sm shadow-[0_8px_30px_rgba(250,204,21,0.35)] hover:shadow-[0_8px_40px_rgba(250,204,21,0.6)] hover:scale-[1.04] transition-all group"
+                >
+                  Try Demo
+                  <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+              </>
+            )}
+
+            <button
+              onClick={() => setMobileOpen(o => !o)}
+              aria-label="Toggle menu"
+              className="md:hidden w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 hover:border-yellow-400/40 hover:bg-yellow-400/10 flex items-center justify-center text-white transition-all"
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {mobileOpen ? (
+                  <motion.div key="x" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.18 }}>
+                    <X size={17} />
+                  </motion.div>
+                ) : (
+                  <motion.div key="m" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.18 }}>
+                    <Menu size={17} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </button>
+          </div>
         </div>
-      </div>
-    </motion.nav>
+
+        {/* Mobile drawer */}
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden bg-black/95 backdrop-blur-2xl border-t border-yellow-500/15"
+            >
+              <div className="px-6 py-4 space-y-1.5">
+                {navLinks.map((l, i) => (
+                  <motion.a
+                    key={l.href}
+                    href={l.href}
+                    onClick={() => setMobileOpen(false)}
+                    initial={{ opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                    className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white transition"
+                  >
+                    {l.label}
+                    <ArrowRight size={13} className="opacity-50" />
+                  </motion.a>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.nav>
+    </>
   );
 }
 
@@ -633,20 +746,145 @@ function CTA({ onOpenCTA }) {
 }
 
 function Footer() {
+  const links = {
+    Demo: [
+      { label: "Features",  href: "#features" },
+      { label: "Workflow",  href: "#workflow" },
+      { label: "Pricing",   href: "#pricing" },
+      { label: "FAQ",       href: "#faq" },
+    ],
+    Resources: [
+      { label: "Documentation", href: "#" },
+      { label: "Reset data",    href: "#" },
+      { label: "Architecture",  href: "#" },
+      { label: "Changelog",     href: "#" },
+    ],
+    Platform: [
+      { label: "Full CRM Suite", href: "#" },
+      { label: "Mobile app",     href: "#" },
+      { label: "Backend API",    href: "#" },
+      { label: "Book a demo",    href: "#" },
+    ],
+  };
+
   return (
-    <footer className="py-12 px-6 border-t border-white/5">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-500">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center">
-            <Zap size={13} className="text-black fill-black" />
+    <footer className="relative mt-20">
+      {/* Gradient hairline */}
+      <div className="h-px bg-gradient-to-r from-transparent via-yellow-400/40 to-transparent" />
+
+      {/* Aurora glow */}
+      <div className="absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute top-10 left-1/4 w-[500px] h-[500px] rounded-full bg-yellow-500/[0.04] blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full bg-sky-500/[0.04] blur-3xl" />
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 py-14">
+        {/* Top — brand + links */}
+        <div className="grid md:grid-cols-12 gap-8 mb-12">
+          {/* Brand col */}
+          <div className="md:col-span-5">
+            <Link to="/" className="inline-flex items-center gap-2.5 mb-4 group">
+              <div className="relative">
+                <div
+                  className="w-10 h-10 rounded-2xl bg-gradient-to-br from-yellow-300 via-yellow-500 to-amber-600 flex items-center justify-center border border-yellow-300/40"
+                  style={{ boxShadow: "0 0 20px rgba(250,204,21,0.45)" }}
+                >
+                  <Zap size={16} className="text-black fill-black" />
+                </div>
+              </div>
+              <div className="leading-none">
+                <div className="font-black tracking-wider text-white">
+                  CRM<span className="text-yellow-400">.</span>demo
+                </div>
+                <div className="text-[9px] tracking-[0.25em] text-gray-500 mt-1">
+                  LIVE · IN BROWSER
+                </div>
+              </div>
+            </Link>
+
+            <p className="text-sm text-gray-400 leading-relaxed max-w-sm">
+              A fully client-side showcase of CRM Suite — runs in your browser with{" "}
+              <code className="text-yellow-300 text-xs bg-white/5 px-1.5 py-0.5 rounded">localStorage</code>.
+              Perfect for client demos, investor pitches, and offline marketing.
+            </p>
+
+            {/* Social rail */}
+            <div className="flex gap-2 mt-5">
+              {[
+                { icon: Github,   label: "GitHub" },
+                { icon: Twitter,  label: "Twitter" },
+                { icon: Linkedin, label: "LinkedIn" },
+              ].map((s) => (
+                <a
+                  key={s.label}
+                  href="#"
+                  aria-label={s.label}
+                  className="w-9 h-9 rounded-xl bg-white/[0.04] hover:bg-yellow-400/15 border border-white/10 hover:border-yellow-400/40 flex items-center justify-center text-gray-400 hover:text-yellow-300 hover:-translate-y-0.5 transition-all"
+                >
+                  <s.icon size={14} />
+                </a>
+              ))}
+            </div>
+
+            {/* Status pill */}
+            <div className="mt-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs">
+              <span className="relative flex w-1.5 h-1.5">
+                <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-70" />
+                <span className="relative rounded-full w-1.5 h-1.5 bg-emerald-400" />
+              </span>
+              Demo running smoothly · no server needed
+            </div>
           </div>
-          <span>CRM Demo · Built with React + localStorage</span>
+
+          {/* Link columns */}
+          {Object.entries(links).map(([title, items]) => (
+            <div key={title} className="md:col-span-2">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-yellow-400 mb-4 font-bold">
+                {title}
+              </p>
+              <ul className="space-y-2.5 text-sm">
+                {items.map((l) => (
+                  <li key={l.label}>
+                    <a href={l.href} className="text-gray-400 hover:text-white transition">
+                      {l.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+
+          {/* Build info */}
+          <div className="md:col-span-1">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-yellow-400 mb-4 font-bold">
+              Built with
+            </p>
+            <ul className="space-y-2 text-xs text-gray-400">
+              <li>React 19</li>
+              <li>Vite 7</li>
+              <li>Tailwind 4</li>
+              <li>Recharts 3</li>
+              <li>Framer Motion</li>
+            </ul>
+          </div>
         </div>
-        <div className="flex items-center gap-6">
-          <a href="#" className="hover:text-white flex items-center gap-1.5">
-            <Github size={14} /> GitHub
-          </a>
-          <span>© {new Date().getFullYear()} CRM Suite</span>
+
+        {/* Bottom bar */}
+        <div className="pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-gray-500">
+          <p className="inline-flex items-center gap-1.5">
+            © {new Date().getFullYear()} CRM Suite ·{" "}
+            <span className="inline-flex items-center gap-1">
+              built with <Heart size={11} className="text-pink-400 fill-pink-400" /> in India
+            </span>
+          </p>
+          <div className="flex items-center gap-5 flex-wrap">
+            <a href="#" className="hover:text-yellow-300 transition">Privacy</a>
+            <a href="#" className="hover:text-yellow-300 transition">Terms</a>
+            <span className="inline-flex items-center gap-1.5">
+              <Sparkles size={11} className="text-yellow-400" />
+              v1.0 · 14 demo features
+            </span>
+          </div>
         </div>
       </div>
     </footer>

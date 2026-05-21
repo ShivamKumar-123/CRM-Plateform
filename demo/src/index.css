@@ -9,6 +9,171 @@ html, body, #root {
   background: #050505;
   color: #fff;
   min-height: 100%;
+  transition: background-color 0.3s ease;
+}
+
+/* ────────────────────────────────────────────────────────────────
+ *  LIGHT MODE — clean modern white / slate palette
+ *  Applied when <html class="light"> is set by ThemeContext.
+ *  Goal: a crisp, premium SaaS light look (think Linear / Vercel)
+ *  while keeping the yellow brand accent vibrant.
+ * ──────────────────────────────────────────────────────────────── */
+
+html.light {
+  color-scheme: light;
+  --grid: rgba(15, 23, 42, 0.05);
+}
+html.light, html.light body, html.light #root {
+  background: #f8fafc;       /* slate-50 */
+  color: #0f172a;            /* slate-900 */
+}
+html.light select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+/* Solid dark surfaces → white / slate-50 */
+html.light .bg-black,
+html.light .bg-gray-950 {
+  background-color: #f8fafc !important;
+}
+html.light .bg-gray-900 { background-color: #ffffff !important; }
+html.light .bg-gray-800 { background-color: #f1f5f9 !important; }
+
+/* Translucent dark overlays */
+html.light .bg-black\/70,
+html.light .bg-black\/75,
+html.light .bg-black\/60,
+html.light .bg-black\/50,
+html.light .bg-black\/40 {
+  background-color: rgba(248, 250, 252, 0.85) !important;
+}
+html.light .bg-black\/80,
+html.light .bg-black\/95 {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+html.light .bg-black\/30,
+html.light .bg-black\/20 {
+  background-color: rgba(15, 23, 42, 0.04) !important;
+}
+
+/* Sidebar / nav black gradients → soft slate */
+html.light .bg-gradient-to-b.from-black.via-gray-950.to-black,
+html.light .bg-gradient-to-r.from-black.via-gray-950.to-black {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 50%, #ffffff 100%) !important;
+}
+html.light .bg-gradient-to-br.from-black { background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #fafafa 100%) !important; }
+html.light .bg-gradient-to-b.from-black { background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important; }
+
+/* White-on-dark surface tints → slate-on-light surface tints */
+html.light .bg-white\/5,
+html.light .bg-white\/\[0\.03\],
+html.light .bg-white\/\[0\.04\],
+html.light .bg-white\/\[0\.05\] {
+  background-color: rgba(15, 23, 42, 0.04) !important;
+}
+html.light .bg-white\/10,
+html.light .bg-white\/\[0\.06\],
+html.light .bg-white\/\[0\.07\],
+html.light .bg-white\/\[0\.08\] {
+  background-color: rgba(15, 23, 42, 0.06) !important;
+}
+html.light .bg-white\/15,
+html.light .bg-white\/20 {
+  background-color: rgba(15, 23, 42, 0.09) !important;
+}
+
+/* Hover variants */
+html.light .hover\:bg-white\/5:hover,
+html.light .hover\:bg-white\/10:hover {
+  background-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Borders */
+html.light .border-white\/5,
+html.light .border-white\/10,
+html.light .border-white\/15,
+html.light .border-white\/20 {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+}
+html.light .hover\:border-white\/20:hover,
+html.light .hover\:border-yellow-400\/30:hover {
+  border-color: rgba(202, 138, 4, 0.5) !important;
+}
+
+/* Text colors */
+html.light .text-white { color: #0f172a !important; }
+html.light .text-gray-200 { color: #1e293b !important; }
+html.light .text-gray-300 { color: #334155 !important; }
+html.light .text-gray-400 { color: #475569 !important; }
+html.light .text-gray-500 { color: #64748b !important; }
+html.light .text-gray-600 { color: #94a3b8 !important; }
+html.light .placeholder-gray-500::placeholder,
+html.light .placeholder-gray-400::placeholder { color: #94a3b8 !important; }
+
+/* Accent text — darker for contrast on white */
+html.light .text-yellow-300 { color: #a16207 !important; }
+html.light .text-yellow-400 { color: #854d0e !important; }
+html.light .text-sky-300 { color: #0369a1 !important; }
+html.light .text-sky-400 { color: #0284c7 !important; }
+html.light .text-emerald-300,
+html.light .text-emerald-400 { color: #047857 !important; }
+html.light .text-pink-300,
+html.light .text-pink-400 { color: #be185d !important; }
+html.light .text-violet-300,
+html.light .text-violet-400 { color: #6d28d9 !important; }
+html.light .text-fuchsia-300,
+html.light .text-fuchsia-400 { color: #a21caf !important; }
+html.light .text-red-300 { color: #b91c1c !important; }
+
+/* Brand gradient text — keep readable on white */
+html.light .gradient-text { filter: brightness(0.75) saturate(1.4); }
+
+/* Aurora glow orbs — softer on light bg */
+html.light .bg-yellow-400\/20,
+html.light .bg-yellow-500\/20,
+html.light .bg-amber-500\/20 { background-color: rgba(250, 204, 21, 0.18) !important; }
+html.light .bg-fuchsia-500\/15 { background-color: rgba(217, 70, 239, 0.10) !important; }
+html.light .bg-sky-500\/15 { background-color: rgba(14, 165, 233, 0.10) !important; }
+html.light .bg-yellow-400\/10,
+html.light .bg-yellow-500\/10 { background-color: rgba(250, 204, 21, 0.12) !important; }
+
+/* Shadows — softer on white bg */
+html.light .shadow-xl,
+html.light .shadow-lg,
+html.light .shadow-2xl {
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Date picker icon */
+html.light input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
+  cursor: pointer;
+}
+
+/* Scrollbar */
+html.light *::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5);
+}
+html.light *::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.7);
+}
+
+/* Glass cards in light mode — frosted slate */
+html.light .glass {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border-color: rgba(15, 23, 42, 0.08) !important;
+}
+html.light .glass-strong {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+/* Border gradient helper — match light surface */
+html.light .border-gradient {
+  background:
+    linear-gradient(#ffffff, #ffffff) padding-box,
+    linear-gradient(135deg, rgba(250, 204, 21, 0.5), rgba(56, 189, 248, 0.4)) border-box !important;
 }
 
 /* ── Landing page animations ── */

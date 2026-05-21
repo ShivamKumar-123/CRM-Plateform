@@ -3,6 +3,7 @@ import { AuthProvider } from "./context/AuthContext.jsx";
 import { IndustryProvider } from "./context/IndustryContext.jsx";
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import { DemoModeProvider } from "./context/DemoModeContext.jsx";
+import { ThemeProvider } from "./context/ThemeContext.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Layout from "./Layout.jsx";
 
@@ -49,14 +50,16 @@ const router = createBrowserRouter(
 
 export default function App() {
   return (
-    <AuthProvider>
-      <IndustryProvider>
-        <NotificationProvider>
-          <DemoModeProvider>
-            <RouterProvider router={router} />
-          </DemoModeProvider>
-        </NotificationProvider>
-      </IndustryProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <IndustryProvider>
+          <NotificationProvider>
+            <DemoModeProvider>
+              <RouterProvider router={router} />
+            </DemoModeProvider>
+          </NotificationProvider>
+        </IndustryProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

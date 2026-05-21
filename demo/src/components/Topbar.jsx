@@ -4,6 +4,7 @@ import { Menu, Search, ChevronDown, LogOut, User, RotateCcw } from "lucide-react
 import { useAuth } from "../context/AuthContext.jsx";
 import NotificationBell from "./NotificationBell.jsx";
 import IndustrySwitcher from "./IndustrySwitcher.jsx";
+import ThemeToggle from "./ThemeToggle.jsx";
 
 export default function Topbar({ onMenu }) {
   const { user, logout, resetDemo } = useAuth();
@@ -54,6 +55,7 @@ export default function Topbar({ onMenu }) {
 
         <div className="flex items-center gap-2">
           <IndustrySwitcher />
+          <ThemeToggle />
           <NotificationBell />
 
           <div className="relative" ref={menuRef}>

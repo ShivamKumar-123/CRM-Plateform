@@ -57,6 +57,11 @@ html.light .bg-black\/40 {
 html.light .bg-black\/80 {
   background-color: rgba(120, 80, 30, 0.18) !important;
 }
+/* Phase 6-8 admin pages use bg-black/30 + bg-black/20 for textarea / detail-pane backdrops */
+html.light .bg-black\/30,
+html.light .bg-black\/20 {
+  background-color: rgba(120, 80, 30, 0.08) !important;
+}
 
 /* — Sidebar / navbar gradients — */
 html.light .bg-gradient-to-b.from-black.via-gray-950.to-black,
