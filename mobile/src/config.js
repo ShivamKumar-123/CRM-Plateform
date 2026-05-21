@@ -11,8 +11,8 @@ import Constants from "expo-constants";
 
 const extraApiUrl = Constants?.expoConfig?.extra?.apiUrl;
 
-// CRM backend lives on port 8001 (8000 reserved for other Django projects).
+// CRM backend lives on port 8000.
 const fallback =
-  Platform.OS === "android" ? "http://10.0.2.2:8001" : "http://localhost:8001";
+  Platform.OS === "android" ? "http://10.0.2.2:8000" : "http://localhost:8000";
 
 export const API_URL = extraApiUrl || fallback;

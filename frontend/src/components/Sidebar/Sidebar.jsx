@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -11,6 +11,10 @@ import {
   X,
   Handshake,
   Crown,
+  ShieldCheck,
+  ArrowRight,
+  CheckSquare,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.jsx";
 
@@ -19,16 +23,11 @@ const baseNavItems = [
   { icon: UserPlus, label: "Leads", path: "/app/leads" },
   { icon: Handshake, label: "Deals", path: "/app/deals" },
   { icon: Users, label: "Customers", path: "/app/customers" },
+  { icon: CheckSquare, label: "Tasks", path: "/app/tasks" },
+  { icon: Bell, label: "Notifications", path: "/app/notifications" },
   { icon: BarChart3, label: "Reports", path: "/app/reports" },
   { icon: Settings, label: "Settings", path: "/app/settings" },
 ];
-
-const superAdminItem = {
-  icon: Crown,
-  label: "Super Admin",
-  path: "/admin",
-  superOnly: true,
-};
 
 /* ── Variants ── */
 const sidebarVariant = {
@@ -129,9 +128,7 @@ function SidebarContent({ setSidebarOpen, isMobile }) {
     navigate("/login", { replace: true });
   };
 
-  const navItems = isSuperUser
-    ? [...baseNavItems, superAdminItem]
-    : baseNavItems;
+  const navItems = baseNavItems;
 
   return (
     <>
@@ -231,6 +228,58 @@ function SidebarContent({ setSidebarOpen, isMobile }) {
 
       {/* User + Logout */}
       <div className="px-3 pb-5 mt-auto space-y-2">
+        {isSuperUser && (
+          <Link
+            to="/admin"
+            onClick={() => isMobile && setSidebarOpen(false)}
+            className="group relative block overflow-hidden rounded-xl p-3 border border-yellow-400/40
+                       bg-gradient-to-br from-yellow-500/15 via-amber-500/10 to-orange-500/15
+                       hover:from-yellow-500/25 hover:via-amber-500/20 hover:to-orange-500/25
+                       transition-all duration-300"
+            style={{ boxShadow: "0 0 20px rgba(250,204,21,0.15)" }}
+          >
+            {/* Animated shimmer overlay */}
+            <span
+              className="absolute inset-0 -translate-x-full group-hover:translate-x-full
+                         transition-transform duration-1000 pointer-events-none"
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
+              }}
+            />
+
+            <div className="relative flex items-center gap-3">
+              <motion.span
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0
+                           bg-gradient-to-br from-yellow-400 via-amber-500 to-orange-500
+                           border border-yellow-300/40"
+                style={{ boxShadow: "0 0 14px rgba(250,204,21,0.5)" }}
+                animate={{ rotate: [0, -4, 4, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <Crown size={16} className="text-black" />
+              </motion.span>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-yellow-300/90">
+                    Super Admin
+                  </p>
+                  <ShieldCheck size={10} className="text-yellow-300/90" />
+                </div>
+                <p className="text-xs font-semibold text-white truncate">
+                  Open admin console
+                </p>
+              </div>
+
+              <ArrowRight
+                size={14}
+                className="text-yellow-300 transition-transform group-hover:translate-x-1"
+              />
+            </div>
+          </Link>
+        )}
+
         {organization && (
           <div className="px-3 py-2 rounded-xl bg-gradient-to-r from-yellow-400/8 to-sky-400/8 border border-yellow-400/15">
             <p className="text-[9px] uppercase tracking-widest text-gray-500 font-bold">Organization</p>

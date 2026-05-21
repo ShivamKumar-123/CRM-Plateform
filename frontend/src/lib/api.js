@@ -105,6 +105,16 @@ export const api = {
   updateDeal: (id, data) => request(`/api/deals/${id}/`, { method: "PUT", body: data }),
   deleteDeal: (id) => request(`/api/deals/${id}/`, { method: "DELETE" }),
 
+  // Tasks
+  getTasks: () => request("/api/tasks/"),
+  getTask: (id) => request(`/api/tasks/${id}/`),
+  createTask: (data) => request("/api/tasks/", { method: "POST", body: data }),
+  updateTask: (id, data) => request(`/api/tasks/${id}/`, { method: "PUT", body: data }),
+  deleteTask: (id) => request(`/api/tasks/${id}/`, { method: "DELETE" }),
+  getTaskMessages: (taskId) => request(`/api/tasks/${taskId}/task-messages/`),
+  createTaskMessage: (taskId, data) =>
+    request(`/api/tasks/${taskId}/task-messages/`, { method: "POST", body: data }),
+
   // Current user
   getMe: () => request("/api/me/"),
 

@@ -14,6 +14,8 @@ import Leads from './pages/Leads'
 import Customers from './pages/Customers'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
+import Tasks from './pages/Tasks'
+import Notifications from './pages/Notifications'
 import Login from './pages/Login'
 import { Deal } from './components/index.js'
 import { AuthProvider } from './context/AuthContext.jsx'
@@ -110,6 +112,8 @@ const router = createBrowserRouter(
         <Route path='leads' element={<Leads />} />
         <Route path='deals' element={<Deal />} />
         <Route path='customers' element={<Customers />} />
+        <Route path='tasks' element={<Tasks />} />
+        <Route path='notifications' element={<Notifications />} />
         <Route path='reports' element={<Reports />} />
         <Route path='settings' element={<Settings />} />
       </Route>
