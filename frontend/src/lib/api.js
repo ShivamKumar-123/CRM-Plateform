@@ -410,6 +410,24 @@ export const api = {
   updateDashboardLayout: (id, data) => request(`/api/dashboard-layouts/${id}/`, { method: "PATCH", body: data }),
   deleteDashboardLayout: (id) => request(`/api/dashboard-layouts/${id}/`, { method: "DELETE" }),
 
+  // Documents (KYC, contracts, attachments — scoped to a Lead)
+  getDocuments: () => request("/api/documents/"),
+  getDocument: (id) => request(`/api/documents/${id}/`),
+  uploadDocument: (formData) =>
+    request("/api/documents/", { method: "POST", body: formData, isForm: true }),
+  updateDocument: (id, formData) =>
+    request(`/api/documents/${id}/`, { method: "PUT", body: formData, isForm: true }),
+  deleteDocument: (id) => request(`/api/documents/${id}/`, { method: "DELETE" }),
+
+  // Payments (linked to a Deal)
+  getPayments: () => request("/api/payments/"),
+  getPayment: (id) => request(`/api/payments/${id}/`),
+  createPayment: (formData) =>
+    request("/api/payments/", { method: "POST", body: formData, isForm: true }),
+  updatePayment: (id, formData) =>
+    request(`/api/payments/${id}/`, { method: "PUT", body: formData, isForm: true }),
+  deletePayment: (id) => request(`/api/payments/${id}/`, { method: "DELETE" }),
+
   // Customer portal — customer side. Uses a portal token instead of JWT.
   portal: {
     me: (token) => portalRequest("/api/portal/me/", token),

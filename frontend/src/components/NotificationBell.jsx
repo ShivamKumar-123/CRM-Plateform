@@ -14,7 +14,9 @@ export default function NotificationBell() {
     try {
       const d = await api.getNotifications();
       setData(d);
-    } catch (_) {} finally { setLoading(false); }
+    } catch (e) {
+      console.debug("notification poll failed", e);
+    } finally { setLoading(false); }
   };
 
   useEffect(() => {
@@ -36,14 +38,18 @@ export default function NotificationBell() {
     try {
       await api.markNotificationRead(id);
       load();
-    } catch (_) {}
+    } catch (e) {
+      console.debug("markNotificationRead failed", e);
+    }
   };
 
   const markAllRead = async () => {
     try {
       await api.markAllNotificationsRead();
       load();
-    } catch (_) {}
+    } catch (e) {
+      console.debug("markAllNotificationsRead failed", e);
+    }
   };
 
   return (

@@ -10,7 +10,7 @@ import {
   ChevronLeft, ChevronRight, Play, Pause, Flame, Activity,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { fadeUp, SectionHeading, FeatureCard, CTABanner } from "./_components.jsx";
+import { SectionHeading, FeatureCard, CTABanner } from "./_components.jsx";
 import { TextParallaxContentExample } from "../../components/ui/text-parallax-content-scroll.jsx";
 
 const industries = [
@@ -403,7 +403,7 @@ function HeroSlider({ ctaHref, ctaLabel }) {
   const [progress, setProgress] = useState(0);
 
   const go = useCallback((n) => {
-    setIndex((prev) => (n + heroSlides.length) % heroSlides.length);
+    setIndex(() => (n + heroSlides.length) % heroSlides.length);
     setProgress(0);
   }, []);
   const next = useCallback(() => go(index + 1), [go, index]);

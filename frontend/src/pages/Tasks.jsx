@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckSquare, RefreshCw, Calendar, AlertTriangle, Clock,
-  CircleDashed, Loader2, CheckCircle2, X, Filter,
+  CircleDashed, Loader2, CheckCircle2, X, Filter, List, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -31,6 +31,7 @@ export default function Tasks() {
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [selected, setSelected] = useState(null);
+  const [view, setView] = useState("list");
   const { user } = useAuth();
 
   const canManage = user && (
@@ -89,10 +90,26 @@ export default function Tasks() {
             Tasks assigned to you. {canManage ? "Click status to update." : "Read-only — your manager controls status."}
           </p>
         </div>
-        <button onClick={load}
-          className="p-2.5 rounded-xl bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10">
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-        </button>
+        <div className="flex gap-2">
+          <div className="flex rounded-xl bg-white/5 border border-white/10 p-1">
+            <button onClick={() => setView("list")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium inline-flex items-center gap-1.5 transition ${
+                view === "list" ? "bg-white/10 text-white" : "text-gray-400 hover:text-white"
+              }`}>
+              <List size={13} /> List
+            </button>
+            <button onClick={() => setView("calendar")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium inline-flex items-center gap-1.5 transition ${
+                view === "calendar" ? "bg-white/10 text-white" : "text-gray-400 hover:text-white"
+              }`}>
+              <Calendar size={13} /> Calendar
+            </button>
+          </div>
+          <button onClick={load}
+            className="p-2.5 rounded-xl bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10">
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
       </motion.div>
 
       {/* Stats */}
@@ -124,24 +141,28 @@ export default function Tasks() {
         </div>
       )}
 
-      {/* Task list */}
-      <motion.div variants={fadeUp} initial="hidden" animate="show" transition={{ delay: 0.15 }}
-        className="space-y-3">
-        {filtered.map((t) => (
-          <TaskRow key={t.id} task={t} onClick={() => setSelected(t)} onStatusChange={changeStatus} canManage={canManage} />
-        ))}
-        {!loading && filtered.length === 0 && (
-          <div className="text-center py-16 rounded-2xl bg-white/[0.03] border border-white/10">
-            <CheckSquare size={32} className="mx-auto text-gray-600 mb-3" />
-            <p className="text-gray-400 text-sm">
-              {tasks.length === 0 ? "Koi tasks assigned nahi hain." : "No tasks match this filter."}
-            </p>
-          </div>
-        )}
-        {loading && (
-          <div className="text-center py-12 text-gray-400">Loading…</div>
-        )}
-      </motion.div>
+      {/* Task list / calendar */}
+      {view === "list" ? (
+        <motion.div variants={fadeUp} initial="hidden" animate="show" transition={{ delay: 0.15 }}
+          className="space-y-3">
+          {filtered.map((t) => (
+            <TaskRow key={t.id} task={t} onClick={() => setSelected(t)} onStatusChange={changeStatus} canManage={canManage} />
+          ))}
+          {!loading && filtered.length === 0 && (
+            <div className="text-center py-16 rounded-2xl bg-white/[0.03] border border-white/10">
+              <CheckSquare size={32} className="mx-auto text-gray-600 mb-3" />
+              <p className="text-gray-400 text-sm">
+                {tasks.length === 0 ? "Koi tasks assigned nahi hain." : "No tasks match this filter."}
+              </p>
+            </div>
+          )}
+          {loading && (
+            <div className="text-center py-12 text-gray-400">Loading…</div>
+          )}
+        </motion.div>
+      ) : (
+        <TaskCalendar tasks={filtered} onSelect={setSelected} />
+      )}
 
       <AnimatePresence>
         {selected && <TaskDetail task={selected} onClose={() => setSelected(null)} canManage={canManage} onStatusChange={(s) => { changeStatus(selected, s); setSelected({ ...selected, status: s }); }} />}
@@ -300,5 +321,127 @@ function FilterChip({ active, onClick, children }) {
       }`}>
       {children}
     </button>
+  );
+}
+
+/* ─── Calendar view ──────────────────────────────────────── */
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+function TaskCalendar({ tasks, onSelect }) {
+  const [cursor, setCursor] = useState(() => {
+    const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d;
+  });
+
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startWeekday = firstDay.getDay();
+  const daysInMonth = lastDay.getDate();
+
+  const byDay = useMemo(() => {
+    const m = {};
+    tasks.forEach((t) => {
+      if (!t.due_date) return;
+      const d = new Date(t.due_date);
+      if (d.getFullYear() !== year || d.getMonth() !== month) return;
+      const key = d.getDate();
+      (m[key] = m[key] || []).push(t);
+    });
+    return m;
+  }, [tasks, year, month]);
+
+  const todayObj = new Date();
+  const isToday = (day) =>
+    todayObj.getFullYear() === year &&
+    todayObj.getMonth() === month &&
+    todayObj.getDate() === day;
+
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  return (
+    <motion.div variants={fadeUp} initial="hidden" animate="show" transition={{ delay: 0.15 }}
+      className="rounded-2xl bg-white/[0.03] border border-white/10 p-4 md:p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold text-white">
+          {MONTHS[month]} {year}
+        </h2>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCursor(new Date(year, month - 1, 1))}
+            className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <button
+            onClick={() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setCursor(d); }}
+            className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 text-xs hover:bg-white/10"
+          >
+            Today
+          </button>
+          <button
+            onClick={() => setCursor(new Date(year, month + 1, 1))}
+            className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1.5 mb-2">
+        {WEEKDAYS.map((w) => (
+          <div key={w} className="text-[10px] uppercase tracking-widest text-gray-500 text-center py-1">{w}</div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-1.5">
+        {cells.map((day, idx) => {
+          if (day === null) return <div key={idx} className="aspect-square" />;
+          const dayTasks = byDay[day] || [];
+          const overdueToday = isToday(day) && dayTasks.some((t) => t.status !== "COMPLETED");
+          return (
+            <div
+              key={idx}
+              className={`aspect-square rounded-lg p-1.5 border flex flex-col text-left ${
+                isToday(day)
+                  ? "bg-yellow-400/10 border-yellow-400/40"
+                  : "bg-white/[0.02] border-white/10"
+              } ${dayTasks.length ? "ring-1 ring-violet-400/20" : ""}`}
+            >
+              <div className={`text-xs font-bold ${isToday(day) ? "text-yellow-300" : "text-gray-300"} flex items-center justify-between`}>
+                <span>{day}</span>
+                {overdueToday && <AlertTriangle size={10} className="text-red-400" />}
+              </div>
+              <div className="flex-1 overflow-hidden mt-1 space-y-0.5">
+                {dayTasks.slice(0, 3).map((t) => {
+                  const chip = STATUS_META[t.status] || STATUS_META.PENDING;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => onSelect(t)}
+                      className={`block w-full text-left truncate text-[10px] px-1 py-0.5 rounded ${chip.chip} hover:opacity-80`}
+                      title={t.title}
+                    >
+                      {t.title}
+                    </button>
+                  );
+                })}
+                {dayTasks.length > 3 && (
+                  <div className="text-[9px] text-gray-500 pl-1">+{dayTasks.length - 3} more</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
   );
 }

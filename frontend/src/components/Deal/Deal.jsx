@@ -1,8 +1,10 @@
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   RefreshCw, Plus, Eye, Pencil, Trash2, X, Check, Search,
   Handshake, LayoutGrid, List, GripVertical,
+  Phone, Mail, MessageCircle, Clock, Sparkles, IndianRupee,
+  Upload, Loader2, FileText,
 } from "lucide-react";
 import { api } from "../../lib/api.js";
 
@@ -473,9 +475,73 @@ function DealModal({ deal, stageList, onClose, onSaved }) {
   );
 }
 
+const DEAL_TABS = [
+  { key: "overview", label: "Overview", icon: Eye },
+  { key: "payments", label: "Payments", icon: IndianRupee },
+  { key: "activity", label: "Activity", icon: Clock },
+  { key: "ai", label: "AI Risk", icon: Sparkles },
+];
+
 function DealDetail({ deal, onClose, onEdit }) {
+  const [tab, setTab] = useState("overview");
   return (
     <ModalShell title={`Deal #${deal.id} — ${deal.name}`} onClose={onClose}>
+      <div className="flex gap-1 mb-5 p-1 rounded-xl bg-white/5 border border-white/10">
+        {DEAL_TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition ${
+              tab === t.key
+                ? "bg-gradient-to-r from-sky-400/20 to-blue-500/10 text-sky-300 border border-sky-400/30"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <t.icon size={13} /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "overview" && <DealOverview deal={deal} />}
+      {tab === "payments" && <DealPayments dealId={deal.id} totalAmount={deal.deal_value} />}
+      {tab === "activity" && <DealActivity dealId={deal.id} />}
+      {tab === "ai" && <DealAI dealId={deal.id} />}
+
+      <div className="mt-6 flex justify-end gap-2">
+        <button onClick={onClose}
+          className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10">Close</button>
+        <button onClick={onEdit}
+          className="px-5 py-2 rounded-lg bg-gradient-to-r from-sky-400 to-blue-500 text-black font-semibold inline-flex items-center gap-2">
+          <Pencil size={14} /> Edit
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function DealOverview({ deal }) {
+  const phone = deal.phone || "";
+  const cleanPhone = phone.replace(/[^0-9]/g, "");
+  return (
+    <>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {phone && (
+          <a href={`tel:${phone}`} className="px-3 py-2 rounded-lg bg-sky-500/10 border border-sky-400/30 text-sky-300 text-xs font-semibold inline-flex items-center gap-2 hover:bg-sky-500/20">
+            <Phone size={12} /> Call
+          </a>
+        )}
+        {cleanPhone && (
+          <a href={`https://wa.me/${cleanPhone}`} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 text-xs font-semibold inline-flex items-center gap-2 hover:bg-emerald-500/20">
+            <MessageCircle size={12} /> WhatsApp
+          </a>
+        )}
+        {deal.email && (
+          <a href={`mailto:${deal.email}`} className="px-3 py-2 rounded-lg bg-violet-500/10 border border-violet-400/30 text-violet-300 text-xs font-semibold inline-flex items-center gap-2 hover:bg-violet-500/20">
+            <Mail size={12} /> Email
+          </a>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <Row label="Phone" value={deal.phone} />
         <Row label="Email" value={deal.email || "—"} />
@@ -494,15 +560,281 @@ function DealDetail({ deal, onClose, onEdit }) {
           </div>
         )}
       </div>
-      <div className="mt-6 flex justify-end gap-2">
-        <button onClick={onClose}
-          className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10">Close</button>
-        <button onClick={onEdit}
-          className="px-5 py-2 rounded-lg bg-gradient-to-r from-sky-400 to-blue-500 text-black font-semibold inline-flex items-center gap-2">
-          <Pencil size={14} /> Edit
-        </button>
+    </>
+  );
+}
+
+function DealPayments({ dealId, totalAmount }) {
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    payment_type: "UPI",
+    payment_stage: "PARTIAL",
+    amount_paid: "",
+    reference_number: "",
+  });
+  const [file, setFile] = useState(null);
+
+  const load = useCallback(() => {
+    setLoading(true); setErr("");
+    api.getPayments()
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data?.results || []);
+        setPayments(list.filter((p) => p.deal === dealId));
+      })
+      .catch((e) => setErr(e.message))
+      .finally(() => setLoading(false));
+  }, [dealId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const totalPaid = useMemo(
+    () => payments.reduce((s, p) => s + Number(p.amount_paid || 0), 0),
+    [payments]
+  );
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.amount_paid || Number(form.amount_paid) <= 0) return;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("deal", String(dealId));
+      fd.append("payment_type", form.payment_type);
+      fd.append("payment_stage", form.payment_stage);
+      fd.append("amount_paid", form.amount_paid);
+      fd.append("total_amount", String(totalAmount || form.amount_paid));
+      if (form.reference_number) fd.append("reference_number", form.reference_number);
+      if (file) fd.append("payment_screenshot", file);
+      await api.createPayment(fd);
+      setForm({ payment_type: "UPI", payment_stage: "PARTIAL", amount_paid: "", reference_number: "" });
+      setFile(null);
+      load();
+    } catch (ex) { alert(ex.message); }
+    finally { setBusy(false); }
+  };
+
+  const remove = async (id) => {
+    if (!confirm("Delete this payment?")) return;
+    try { await api.deletePayment(id); load(); }
+    catch (ex) { alert(ex.message); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-400/20">
+          <p className="text-[10px] uppercase tracking-widest text-emerald-300">Paid</p>
+          <p className="text-lg font-black text-emerald-300">{formatINR(totalPaid)}</p>
+        </div>
+        <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-400/20">
+          <p className="text-[10px] uppercase tracking-widest text-amber-300">Outstanding</p>
+          <p className="text-lg font-black text-amber-300">
+            {formatINR(Math.max(0, Number(totalAmount || 0) - totalPaid))}
+          </p>
+        </div>
       </div>
-    </ModalShell>
+
+      <form onSubmit={submit} className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+        <p className="text-[10px] uppercase tracking-widest text-gray-400">Add payment</p>
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            value={form.payment_type}
+            onChange={(e) => setForm({ ...form, payment_type: e.target.value })}
+            className="p-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white"
+          >
+            <option value="CASH">Cash</option>
+            <option value="CHEQUE">Cheque</option>
+            <option value="ONLINE">Online</option>
+            <option value="UPI">UPI</option>
+            <option value="CARD">Card</option>
+            <option value="FINANCE">Finance</option>
+          </select>
+          <select
+            value={form.payment_stage}
+            onChange={(e) => setForm({ ...form, payment_stage: e.target.value })}
+            className="p-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white"
+          >
+            <option value="BOOKED">Booked</option>
+            <option value="PARTIAL">Partial</option>
+            <option value="FULL">Full</option>
+          </select>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.amount_paid}
+            onChange={(e) => setForm({ ...form, amount_paid: e.target.value })}
+            placeholder="Amount ₹"
+            className="p-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white placeholder-gray-500"
+            required
+          />
+          <input
+            type="text"
+            value={form.reference_number}
+            onChange={(e) => setForm({ ...form, reference_number: e.target.value })}
+            placeholder="Reference #"
+            className="p-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white placeholder-gray-500"
+          />
+        </div>
+        <div className="flex gap-2">
+          <label className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 text-xs inline-flex items-center gap-2 cursor-pointer hover:bg-white/10">
+            <Upload size={12} /> {file ? file.name : "Screenshot (optional)"}
+            <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} className="hidden" />
+          </label>
+          <button
+            type="submit"
+            disabled={busy}
+            className="px-4 rounded-lg bg-gradient-to-r from-sky-400 to-blue-500 text-black font-semibold text-xs disabled:opacity-40 inline-flex items-center gap-1.5"
+          >
+            {busy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Add
+          </button>
+        </div>
+      </form>
+
+      {err && <div className="p-3 rounded-lg bg-red-500/10 border border-red-400/30 text-red-300 text-xs">{err}</div>}
+      {loading && <p className="text-center text-xs text-gray-500 py-4">Loading…</p>}
+      {!loading && payments.length === 0 && (
+        <p className="text-center text-xs text-gray-500 py-6">No payments recorded for this deal.</p>
+      )}
+
+      <ul className="space-y-2">
+        {payments.map((p) => (
+          <li key={p.id} className="p-3 rounded-lg bg-white/[0.03] border border-white/10 flex items-center gap-3">
+            <IndianRupee size={16} className="text-emerald-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white">
+                {formatINR(p.amount_paid)} <span className="text-xs text-gray-400">· {p.payment_type} · {p.payment_stage}</span>
+              </p>
+              <p className="text-[10px] text-gray-500">
+                {p.reference_number ? `Ref: ${p.reference_number} · ` : ""}
+                {p.created_at ? new Date(p.created_at).toLocaleDateString() : ""}
+              </p>
+            </div>
+            {p.payment_screenshot && (
+              <a
+                href={p.payment_screenshot}
+                target="_blank"
+                rel="noreferrer"
+                className="p-2 rounded-lg bg-sky-500/10 border border-sky-400/30 text-sky-300 hover:bg-sky-500/20"
+                title="View screenshot"
+              >
+                <FileText size={12} />
+              </a>
+            )}
+            <button
+              onClick={() => remove(p.id)}
+              className="p-2 rounded-lg bg-red-500/10 border border-red-400/30 text-red-300 hover:bg-red-500/20"
+              title="Delete"
+            >
+              <Trash2 size={12} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function DealActivity({ dealId }) {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    setLoading(true); setErr("");
+    api.getAuditLogs()
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data?.results || []);
+        setLogs(list.filter((l) => l.object_id === dealId && (l.model || "").toLowerCase().includes("deal")));
+      })
+      .catch((e) => setErr(e.message))
+      .finally(() => setLoading(false));
+  }, [dealId]);
+
+  return (
+    <div className="space-y-3">
+      {err && <div className="p-3 rounded-lg bg-red-500/10 border border-red-400/30 text-red-300 text-xs">{err}</div>}
+      {loading && <p className="text-center text-xs text-gray-500 py-4">Loading…</p>}
+      {!loading && logs.length === 0 && (
+        <p className="text-center text-xs text-gray-500 py-6">No activity recorded for this deal yet.</p>
+      )}
+      <ul className="space-y-2">
+        {logs.map((l) => (
+          <li key={l.id} className="p-3 rounded-lg bg-white/[0.03] border border-white/10">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] uppercase tracking-widest text-sky-300 font-bold">
+                {l.action || l.event || "Update"}
+              </span>
+              <span className="text-[10px] text-gray-500">
+                {l.created_at ? new Date(l.created_at).toLocaleString() : ""}
+              </span>
+            </div>
+            {(l.actor || l.actor_username) && (
+              <p className="text-[11px] text-gray-400">by {l.actor || l.actor_username}</p>
+            )}
+            {l.changes && (
+              <pre className="text-[11px] text-gray-300 mt-1 whitespace-pre-wrap break-words">
+                {typeof l.changes === "string" ? l.changes : JSON.stringify(l.changes, null, 2)}
+              </pre>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function DealAI({ dealId }) {
+  const [risk, setRisk] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  const run = async () => {
+    setLoading(true); setErr("");
+    try {
+      const r = await api.aiPredictDealRisk(dealId);
+      setRisk(r);
+    } catch (ex) { setErr(ex.message); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="space-y-3">
+      <button
+        onClick={run}
+        disabled={loading}
+        className="w-full px-3 py-2 rounded-lg bg-gradient-to-r from-violet-500/20 to-fuchsia-500/10 border border-violet-400/30 text-violet-200 text-xs font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-40"
+      >
+        {loading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+        Analyze deal risk
+      </button>
+
+      {err && <div className="p-3 rounded-lg bg-red-500/10 border border-red-400/30 text-red-300 text-xs">{err}</div>}
+
+      {risk && (
+        <div className="p-4 rounded-xl bg-violet-500/5 border border-violet-400/20 space-y-2">
+          {risk.risk_score !== undefined && (
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] uppercase tracking-widest text-violet-300 font-bold">Risk score</p>
+              <p className={`text-lg font-black ${risk.risk_score > 70 ? "text-red-400" : risk.risk_score > 40 ? "text-amber-400" : "text-emerald-400"}`}>
+                {risk.risk_score} / 100
+              </p>
+            </div>
+          )}
+          {risk.summary && <p className="text-sm text-gray-200 whitespace-pre-wrap">{risk.summary}</p>}
+          {!risk.summary && !risk.risk_score && (
+            <pre className="text-xs text-gray-300 whitespace-pre-wrap">{JSON.stringify(risk, null, 2)}</pre>
+          )}
+        </div>
+      )}
+
+      {!risk && !loading && !err && (
+        <p className="text-center text-xs text-gray-500 py-4">Click the button to get AI deal-risk analysis.</p>
+      )}
+    </div>
   );
 }
 

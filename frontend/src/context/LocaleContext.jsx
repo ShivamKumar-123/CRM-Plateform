@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { translate, SUPPORTED_LOCALES } from "../i18n/index.js";
 

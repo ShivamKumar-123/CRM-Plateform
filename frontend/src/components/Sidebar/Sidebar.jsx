@@ -15,6 +15,7 @@ import {
   ArrowRight,
   CheckSquare,
   Bell,
+  FileText,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.jsx";
 
@@ -24,6 +25,7 @@ const baseNavItems = [
   { icon: Handshake, label: "Deals", path: "/app/deals" },
   { icon: Users, label: "Customers", path: "/app/customers" },
   { icon: CheckSquare, label: "Tasks", path: "/app/tasks" },
+  { icon: FileText, label: "Documents", path: "/app/documents" },
   { icon: Bell, label: "Notifications", path: "/app/notifications" },
   { icon: BarChart3, label: "Reports", path: "/app/reports" },
   { icon: Settings, label: "Settings", path: "/app/settings" },

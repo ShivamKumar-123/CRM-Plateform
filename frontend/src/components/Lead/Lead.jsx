@@ -1,9 +1,10 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
   UserPlus, RefreshCw, Search, Plus, Pencil, Trash2, Eye, X, Check,
-  Phone, Mail, MapPin, Filter,
+  Phone, Mail, MapPin, Filter, MessageCircle, FileText, Clock, Sparkles,
+  Upload, Download, Loader2,
 } from "lucide-react";
 import { api } from "../../lib/api.js";
 
@@ -422,11 +423,76 @@ function LeadModal({ lead, statusChoices, onClose, onSaved }) {
   );
 }
 
-/* ─── Lead Detail (read-only quick view) ─────────────────── */
+/* ─── Lead Detail (tabbed: Overview / Activity / Documents / AI) ─── */
+
+const LEAD_TABS = [
+  { key: "overview", label: "Overview", icon: Eye },
+  { key: "activity", label: "Activity", icon: Clock },
+  { key: "docs", label: "Documents", icon: FileText },
+  { key: "ai", label: "AI", icon: Sparkles },
+];
 
 function LeadDetail({ lead, onClose, onEdit }) {
+  const [tab, setTab] = useState("overview");
   return (
     <ModalShell title={`Lead #${lead.id} — ${lead.name}`} onClose={onClose}>
+      <div className="flex gap-1 mb-5 p-1 rounded-xl bg-white/5 border border-white/10">
+        {LEAD_TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition ${
+              tab === t.key
+                ? "bg-gradient-to-r from-yellow-400/20 to-amber-500/10 text-yellow-300 border border-yellow-400/30"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <t.icon size={13} /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "overview" && <LeadOverview lead={lead} />}
+      {tab === "activity" && <LeadActivity leadId={lead.id} />}
+      {tab === "docs" && <LeadDocuments leadId={lead.id} />}
+      {tab === "ai" && <LeadAI leadId={lead.id} />}
+
+      <div className="mt-6 flex justify-end gap-2">
+        <button onClick={onClose} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10">
+          Close
+        </button>
+        <button onClick={onEdit} className="px-5 py-2 rounded-lg bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-semibold inline-flex items-center gap-2">
+          <Pencil size={14} /> Edit
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function LeadOverview({ lead }) {
+  const phone = lead.phone || "";
+  const cleanPhone = phone.replace(/[^0-9]/g, "");
+  return (
+    <>
+      {/* Quick actions */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {phone && (
+          <a href={`tel:${phone}`} className="px-3 py-2 rounded-lg bg-sky-500/10 border border-sky-400/30 text-sky-300 text-xs font-semibold inline-flex items-center gap-2 hover:bg-sky-500/20">
+            <Phone size={12} /> Call
+          </a>
+        )}
+        {cleanPhone && (
+          <a href={`https://wa.me/${cleanPhone}`} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 text-xs font-semibold inline-flex items-center gap-2 hover:bg-emerald-500/20">
+            <MessageCircle size={12} /> WhatsApp
+          </a>
+        )}
+        {lead.email && (
+          <a href={`mailto:${lead.email}`} className="px-3 py-2 rounded-lg bg-violet-500/10 border border-violet-400/30 text-violet-300 text-xs font-semibold inline-flex items-center gap-2 hover:bg-violet-500/20">
+            <Mail size={12} /> Email
+          </a>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <DetailRow icon={Phone} label="Phone" value={lead.phone} />
         <DetailRow icon={Mail} label="Email" value={lead.email || "—"} />
@@ -450,15 +516,276 @@ function LeadDetail({ lead, onClose, onEdit }) {
           </div>
         )}
       </div>
-      <div className="mt-6 flex justify-end gap-2">
-        <button onClick={onClose} className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10">
-          Close
+    </>
+  );
+}
+
+function LeadActivity({ leadId }) {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [form, setForm] = useState({ notes: "", outcome: "CONNECTED", duration_seconds: 0 });
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true); setErr("");
+    api.getCallLogs(leadId)
+      .then((data) => setLogs(Array.isArray(data) ? data : (data?.results || [])))
+      .catch((e) => setErr(e.message))
+      .finally(() => setLoading(false));
+  }, [leadId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const addLog = async (e) => {
+    e.preventDefault();
+    if (!form.notes.trim()) return;
+    setBusy(true);
+    try {
+      await api.createCallLog({ lead: leadId, ...form });
+      setForm({ notes: "", outcome: "CONNECTED", duration_seconds: 0 });
+      load();
+    } catch (ex) { alert(ex.message); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={addLog} className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+        <p className="text-[10px] uppercase tracking-widest text-gray-400">Log a call</p>
+        <textarea
+          value={form.notes}
+          onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          placeholder="What happened on the call?"
+          rows={2}
+          className="w-full p-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white placeholder-gray-500 focus:border-yellow-400/50 outline-none"
+        />
+        <div className="flex gap-2">
+          <select
+            value={form.outcome}
+            onChange={(e) => setForm({ ...form, outcome: e.target.value })}
+            className="flex-1 p-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white"
+          >
+            <option value="CONNECTED">Connected</option>
+            <option value="NO_ANSWER">No answer</option>
+            <option value="BUSY">Busy</option>
+            <option value="VOICEMAIL">Voicemail</option>
+            <option value="WRONG_NUMBER">Wrong number</option>
+          </select>
+          <input
+            type="number"
+            min="0"
+            value={form.duration_seconds}
+            onChange={(e) => setForm({ ...form, duration_seconds: Number(e.target.value) })}
+            placeholder="sec"
+            className="w-24 p-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white"
+          />
+          <button
+            type="submit"
+            disabled={busy || !form.notes.trim()}
+            className="px-4 rounded-lg bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-semibold text-xs disabled:opacity-40 inline-flex items-center gap-1.5"
+          >
+            {busy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Add
+          </button>
+        </div>
+      </form>
+
+      {err && <div className="p-3 rounded-lg bg-red-500/10 border border-red-400/30 text-red-300 text-xs">{err}</div>}
+      {loading && <p className="text-center text-xs text-gray-500 py-4">Loading…</p>}
+      {!loading && logs.length === 0 && (
+        <p className="text-center text-xs text-gray-500 py-6">No activity logged for this lead yet.</p>
+      )}
+
+      <ul className="space-y-2">
+        {logs.map((l) => (
+          <li key={l.id} className="p-3 rounded-lg bg-white/[0.03] border border-white/10">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] uppercase tracking-widest text-yellow-300 font-bold">
+                {l.outcome || "Note"}
+              </span>
+              <span className="text-[10px] text-gray-500">
+                {l.created_at ? new Date(l.created_at).toLocaleString() : ""}
+              </span>
+            </div>
+            {l.notes && <p className="text-sm text-gray-200 whitespace-pre-wrap">{l.notes}</p>}
+            {l.duration_seconds > 0 && (
+              <p className="text-[11px] text-gray-500 mt-1">Duration: {l.duration_seconds}s</p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function LeadDocuments({ leadId }) {
+  const [docs, setDocs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [docType, setDocType] = useState("AADHAAR");
+
+  const load = useCallback(() => {
+    setLoading(true); setErr("");
+    api.getDocuments()
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data?.results || []);
+        setDocs(list.filter((d) => d.lead === leadId));
+      })
+      .catch((e) => setErr(e.message))
+      .finally(() => setLoading(false));
+  }, [leadId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const upload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("lead", String(leadId));
+      fd.append("document_type", docType);
+      fd.append("document_file", file);
+      await api.uploadDocument(fd);
+      load();
+    } catch (ex) { alert(ex.message); }
+    finally { setUploading(false); e.target.value = ""; }
+  };
+
+  const remove = async (id) => {
+    if (!confirm("Delete this document?")) return;
+    try { await api.deleteDocument(id); load(); }
+    catch (ex) { alert(ex.message); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 flex flex-wrap items-center gap-2">
+        <p className="text-[10px] uppercase tracking-widest text-gray-400 mr-2">Upload</p>
+        <select
+          value={docType}
+          onChange={(e) => setDocType(e.target.value)}
+          className="p-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white"
+        >
+          <option value="AADHAAR">Aadhaar</option>
+          <option value="PAN">PAN</option>
+          <option value="ADDRESS_PROOF">Address Proof</option>
+          <option value="INCOME_PROOF">Income Proof</option>
+          <option value="PASSBOOK">Passbook</option>
+          <option value="CONTRACT">Contract</option>
+          <option value="INVOICE">Invoice</option>
+          <option value="OTHER">Other</option>
+        </select>
+        <label className="px-3 py-2 rounded-lg bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-semibold text-xs inline-flex items-center gap-1.5 cursor-pointer">
+          {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+          {uploading ? "Uploading…" : "Choose file"}
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={upload} className="hidden" disabled={uploading} />
+        </label>
+      </div>
+
+      {err && <div className="p-3 rounded-lg bg-red-500/10 border border-red-400/30 text-red-300 text-xs">{err}</div>}
+      {loading && <p className="text-center text-xs text-gray-500 py-4">Loading…</p>}
+      {!loading && docs.length === 0 && (
+        <p className="text-center text-xs text-gray-500 py-6">No documents uploaded for this lead.</p>
+      )}
+
+      <ul className="space-y-2">
+        {docs.map((d) => (
+          <li key={d.id} className="p-3 rounded-lg bg-white/[0.03] border border-white/10 flex items-center gap-3">
+            <FileText size={16} className="text-yellow-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white truncate">{d.document_type}</p>
+              <p className="text-[10px] text-gray-500">
+                {d.created_at ? new Date(d.created_at).toLocaleDateString() : ""}
+              </p>
+            </div>
+            {d.document_file && (
+              <a
+                href={d.document_file}
+                target="_blank"
+                rel="noreferrer"
+                className="p-2 rounded-lg bg-sky-500/10 border border-sky-400/30 text-sky-300 hover:bg-sky-500/20"
+                title="Open"
+              >
+                <Download size={12} />
+              </a>
+            )}
+            <button
+              onClick={() => remove(d.id)}
+              className="p-2 rounded-lg bg-red-500/10 border border-red-400/30 text-red-300 hover:bg-red-500/20"
+              title="Delete"
+            >
+              <Trash2 size={12} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function LeadAI({ leadId }) {
+  const [summary, setSummary] = useState(null);
+  const [followup, setFollowup] = useState(null);
+  const [loadingKind, setLoadingKind] = useState(null);
+  const [err, setErr] = useState("");
+
+  const run = async (kind) => {
+    setLoadingKind(kind); setErr("");
+    try {
+      if (kind === "summary") {
+        const r = await api.aiSummarizeLead(leadId);
+        setSummary(r?.summary || r?.result || JSON.stringify(r));
+      } else {
+        const r = await api.aiSuggestFollowup(leadId);
+        setFollowup(r?.suggestion || r?.result || JSON.stringify(r));
+      }
+    } catch (ex) { setErr(ex.message); }
+    finally { setLoadingKind(null); }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <button
+          onClick={() => run("summary")}
+          disabled={loadingKind !== null}
+          className="flex-1 px-3 py-2 rounded-lg bg-gradient-to-r from-violet-500/20 to-fuchsia-500/10 border border-violet-400/30 text-violet-200 text-xs font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-40"
+        >
+          {loadingKind === "summary" ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+          Summarize lead
         </button>
-        <button onClick={onEdit} className="px-5 py-2 rounded-lg bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-semibold inline-flex items-center gap-2">
-          <Pencil size={14} /> Edit
+        <button
+          onClick={() => run("followup")}
+          disabled={loadingKind !== null}
+          className="flex-1 px-3 py-2 rounded-lg bg-gradient-to-r from-sky-500/20 to-cyan-500/10 border border-sky-400/30 text-sky-200 text-xs font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-40"
+        >
+          {loadingKind === "followup" ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+          Suggest follow-up
         </button>
       </div>
-    </ModalShell>
+
+      {err && <div className="p-3 rounded-lg bg-red-500/10 border border-red-400/30 text-red-300 text-xs">{err}</div>}
+
+      {summary && (
+        <div className="p-4 rounded-xl bg-violet-500/5 border border-violet-400/20">
+          <p className="text-[10px] uppercase tracking-widest text-violet-300 font-bold mb-2">Summary</p>
+          <p className="text-sm text-gray-200 whitespace-pre-wrap">{summary}</p>
+        </div>
+      )}
+
+      {followup && (
+        <div className="p-4 rounded-xl bg-sky-500/5 border border-sky-400/20">
+          <p className="text-[10px] uppercase tracking-widest text-sky-300 font-bold mb-2">Suggested follow-up</p>
+          <p className="text-sm text-gray-200 whitespace-pre-wrap">{followup}</p>
+        </div>
+      )}
+
+      {!summary && !followup && !loadingKind && !err && (
+        <p className="text-center text-xs text-gray-500 py-4">Click a button to get AI insights.</p>
+      )}
+    </div>
   );
 }
 

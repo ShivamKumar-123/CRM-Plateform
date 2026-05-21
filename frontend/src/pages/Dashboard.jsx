@@ -81,7 +81,7 @@ function Dashboard() {
         )}
 
         <motion.div
-          className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6"
           variants={staggerContainer}
           initial="hidden"
           animate="show"
@@ -92,7 +92,7 @@ function Dashboard() {
           <StatCard title="Win Rate" value={loading ? "…" : winRate} icon={TrendingUp} />
         </motion.div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
           <motion.div
             className="lg:col-span-2 bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-yellow-400/20 shadow-xl"
             variants={slideInLeft}
@@ -163,13 +163,15 @@ function StatCard({ title, value, icon: Icon }) {
       variants={cardVariant}
       whileHover={{ scale: 1.04, y: -4 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl cursor-pointer"
+      className="bg-white/10 backdrop-blur-md p-4 sm:p-6 rounded-2xl border border-white/10 shadow-xl cursor-pointer min-w-0"
     >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-400 text-sm">{title}</p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-gray-400 text-xs sm:text-sm truncate">{title}</p>
           <motion.h3
-            className="text-2xl font-bold text-white mt-1"
+            className="text-lg sm:text-xl md:text-2xl font-bold text-white mt-1 leading-tight tracking-tight"
+            style={{ wordBreak: "normal", overflowWrap: "anywhere" }}
+            title={typeof value === "string" || typeof value === "number" ? String(value) : undefined}
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.5, type: "spring" }}
@@ -178,7 +180,7 @@ function StatCard({ title, value, icon: Icon }) {
           </motion.h3>
         </div>
         <motion.div
-          className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-400 to-sky-500 flex items-center justify-center shadow-lg"
+          className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-yellow-400 to-sky-500 flex items-center justify-center shadow-lg flex-shrink-0"
           whileHover={{ rotate: 10, scale: 1.1 }}
           transition={{ type: "spring", stiffness: 300 }}
         >

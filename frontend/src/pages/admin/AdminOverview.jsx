@@ -26,34 +26,34 @@ export default function AdminOverview() {
   useEffect(load, []);
 
   return (
-    <div className="p-6 md:p-8 space-y-6 relative">
+    <div className="p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6 relative">
       {/* Glow */}
       <div className="pointer-events-none absolute inset-0 -z-10 opacity-40">
         <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-yellow-500/15 blur-3xl" />
       </div>
 
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
+      <div className="flex items-start justify-between gap-3 sm:gap-4 flex-wrap">
+        <div className="min-w-0">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400/10 border border-yellow-400/30 mb-3">
             <Crown size={12} className="text-yellow-400" />
             <span className="text-[10px] tracking-widest uppercase text-yellow-300 font-bold">
               Control Center
             </span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight">
             Overview
           </h1>
-          <p className="text-gray-400 text-sm mt-1">
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">
             System-wide metrics across every user, lead, deal, and payment.
           </p>
         </div>
         <button
           onClick={load}
           disabled={loading}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10"
+          className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 text-xs sm:text-sm flex-shrink-0"
         >
           <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-          Refresh
+          <span className="hidden sm:inline">Refresh</span>
         </button>
       </div>
 
@@ -63,8 +63,8 @@ export default function AdminOverview() {
         <div className="py-20 text-center text-gray-400">Loading stats…</div>
       ) : stats ? (
         <>
-          {/* KPI cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* KPI cards — 4-col only at xl (1280px+) so values like ₹16,53,645.7 don't wrap mid-digit */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
             <KpiCard
               icon={Users}
               label="Users"
@@ -95,8 +95,8 @@ export default function AdminOverview() {
             />
           </div>
 
-          {/* Quick links */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* Quick links — 5-col only at xl so labels like "Organizations" don't truncate */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2.5 sm:gap-3">
             <QuickLink to="/admin/organizations" icon={Building2} label="Organizations" tint="amber" />
             <QuickLink to="/admin/users" icon={Users} label="Manage Users" tint="yellow" />
             <QuickLink to="/admin/leads" icon={UserPlus} label="All Leads" tint="sky" />
@@ -105,7 +105,7 @@ export default function AdminOverview() {
           </div>
 
           {/* Distribution panels */}
-          <div className="grid lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             <Panel title="Users by Role" accent="text-yellow-300">
               {stats.users.by_role.length === 0 ? (
                 <Empty />
@@ -174,10 +174,10 @@ export default function AdminOverview() {
                   {stats.top_performers.map((p, i) => (
                     <div
                       key={p.assigned_to__username}
-                      className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10"
+                      className="flex items-center gap-2 sm:gap-3 p-3 rounded-xl bg-white/5 border border-white/10"
                     >
                       <span
-                        className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm ${
+                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 ${
                           i === 0
                             ? "bg-gradient-to-br from-yellow-400 to-amber-500 text-black"
                             : "bg-white/10 text-gray-300"
@@ -186,14 +186,14 @@ export default function AdminOverview() {
                         #{i + 1}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">
+                        <p className="font-semibold text-xs sm:text-sm truncate">
                           {p.assigned_to__username}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-[10px] sm:text-xs text-gray-500">
                           {p.won_count} won deal{p.won_count !== 1 ? "s" : ""}
                         </p>
                       </div>
-                      <p className="text-sm font-bold text-emerald-400">
+                      <p className="text-xs sm:text-sm font-bold text-emerald-400 flex-shrink-0 text-right">
                         {formatINR(p.won_value)}
                       </p>
                     </div>
@@ -220,19 +220,20 @@ function QuickLink({ to, icon: Icon, label, tint }) {
   return (
     <Link
       to={to}
-      className="group flex items-center justify-between p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-yellow-400/30 hover:bg-white/[0.07] transition-colors"
+      title={label}
+      className="group flex items-center justify-between gap-2 px-3 py-3 sm:p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-yellow-400/30 hover:bg-white/[0.07] transition-colors min-w-0"
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <span
-          className={`w-9 h-9 rounded-lg bg-gradient-to-br ${QUICK_LINK_TINT[tint]} flex items-center justify-center`}
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br ${QUICK_LINK_TINT[tint]} flex items-center justify-center flex-shrink-0`}
         >
           <Icon size={16} className="text-black" />
         </span>
-        <span className="text-sm font-semibold">{label}</span>
+        <span className="text-xs sm:text-sm font-semibold truncate">{label}</span>
       </div>
       <ArrowRight
-        size={16}
-        className="text-gray-500 group-hover:text-yellow-300 group-hover:translate-x-1 transition-all"
+        size={14}
+        className="text-gray-500 group-hover:text-yellow-300 group-hover:translate-x-1 transition-all flex-shrink-0 hidden md:block"
       />
     </Link>
   );

@@ -37,7 +37,7 @@ export default function PortalDocuments() {
                 <ExternalLink size={12} className="text-gray-500 group-hover:text-yellow-300" />
               </div>
               <div className="text-sm font-semibold truncate" title={d.document_type || ""}>{d.document_type || "Document"}</div>
-              <div className="text-[11px] text-gray-500 mt-1">{new Date(d.uploaded_at || d.created_at || Date.now()).toLocaleDateString()}</div>
+              <div className="text-[11px] text-gray-500 mt-1">{(d.uploaded_at || d.created_at) ? new Date(d.uploaded_at || d.created_at).toLocaleDateString() : "—"}</div>
             </a>
           ))}
         </div>

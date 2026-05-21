@@ -32,6 +32,7 @@ export default function AdminDashboardBuilder() {
       })
       .catch((e) => setErr(e.message));
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount; `active` is intentionally captured at initial null
   useEffect(load, []);
 
   async function createBlank() {

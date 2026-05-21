@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { Filter, Play, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { api } from "../../lib/api.js";
 import { modalInput, ErrorBanner, Empty, Panel } from "./_shared.jsx";

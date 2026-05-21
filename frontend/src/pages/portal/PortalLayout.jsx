@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Building2, LayoutDashboard, MessageSquare, FileText, IndianRupee, LogOut } from "lucide-react";
@@ -21,7 +22,7 @@ const navItems = [
 export default function PortalLayout() {
   const navigate = useNavigate();
   const [me, setMe] = useState(null);
-  const [err, setErr] = useState(null);
+  const [, setErr] = useState(null);
 
   useEffect(() => {
     const t = portalAuth.get();

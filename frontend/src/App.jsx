@@ -15,6 +15,7 @@ import Customers from './pages/Customers'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Tasks from './pages/Tasks'
+import Documents from './pages/Documents'
 import Notifications from './pages/Notifications'
 import Login from './pages/Login'
 import { Deal } from './components/index.js'
@@ -113,6 +114,7 @@ const router = createBrowserRouter(
         <Route path='deals' element={<Deal />} />
         <Route path='customers' element={<Customers />} />
         <Route path='tasks' element={<Tasks />} />
+        <Route path='documents' element={<Documents />} />
         <Route path='notifications' element={<Notifications />} />
         <Route path='reports' element={<Reports />} />
         <Route path='settings' element={<Settings />} />

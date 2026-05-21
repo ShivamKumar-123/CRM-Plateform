@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import {
   Headphones, Plus, Building2, Clock, MessageSquare, Send,
   Trash2, Edit3, AlertTriangle, Check, ChevronRight, Search,
@@ -186,7 +186,7 @@ function TicketsTab() {
   );
 }
 
-function TicketDetail({ ticketId, departments, onChanged, onClose }) {
+function TicketDetail({ ticketId, departments: _departments, onChanged, onClose }) {
   const [ticket, setTicket] = useState(null);
   const [reply, setReply] = useState("");
   const [internal, setInternal] = useState(false);

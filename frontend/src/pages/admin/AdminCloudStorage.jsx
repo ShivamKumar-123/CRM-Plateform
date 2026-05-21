@@ -27,7 +27,7 @@ export default function AdminCloudStorage() {
     api.cloudOAuthCallback(provider, code)
       .then(() => { setNote(`Connected ${provider}.`); params.delete("code"); setParams(params, { replace: true }); load(); })
       .catch((e) => setErr(e.message));
-  }, [params]);
+  }, [params, setParams]);
 
   async function connect(provider) {
     setErr(null);

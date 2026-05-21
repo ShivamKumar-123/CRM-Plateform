@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { motion } from "framer-motion";
 import { AlertTriangle, Check, X } from "lucide-react";
 
@@ -70,18 +71,30 @@ export function KpiCard({ icon: Icon, label, value, sub, tint }) {
   return (
     <motion.div
       whileHover={{ y: -4 }}
-      className="p-5 rounded-2xl bg-white/5 border border-white/10"
+      className="p-4 sm:p-5 rounded-2xl bg-white/5 border border-white/10 min-w-0"
     >
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs uppercase tracking-wider text-gray-400">{label}</p>
+      <div className="flex items-center justify-between mb-3 gap-2">
+        <p className="text-[10px] sm:text-xs uppercase tracking-wider text-gray-400 truncate">
+          {label}
+        </p>
         <div
-          className={`w-9 h-9 rounded-lg bg-gradient-to-br ${tint} flex items-center justify-center`}
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br ${tint} flex items-center justify-center flex-shrink-0`}
         >
           <Icon size={16} className="text-black" />
         </div>
       </div>
-      <p className="text-2xl md:text-3xl font-black break-all">{value}</p>
-      {sub && <p className="text-xs text-gray-500 mt-1 truncate">{sub}</p>}
+      <p
+        className="text-xl sm:text-2xl lg:text-3xl font-black leading-tight tracking-tight"
+        style={{ wordBreak: "normal", overflowWrap: "anywhere" }}
+        title={typeof value === "string" || typeof value === "number" ? String(value) : undefined}
+      >
+        {value}
+      </p>
+      {sub && (
+        <p className="text-[10px] sm:text-xs text-gray-500 mt-1 truncate">
+          {sub}
+        </p>
+      )}
     </motion.div>
   );
 }

@@ -15,7 +15,7 @@ const tooltipStyle = {
 export default function AdminAnalytics() {
   const [forecast, setForecast] = useState(null);
   const [cohort, setCohort] = useState([]);
-  const [churn, setChurn] = useState(null);
+  const [, setChurn] = useState(null);
   const [funnel, setFunnel] = useState([]);
   const [exec, setExec] = useState(null);
   const [err, setErr] = useState(null);

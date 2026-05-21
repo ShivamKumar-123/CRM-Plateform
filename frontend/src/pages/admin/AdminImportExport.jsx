@@ -53,7 +53,7 @@ export default function AdminImportExport() {
     }
   }
 
-  async function applyMapping(jobId, mapping) {
+  async function applyMapping(jobId, _mapping) {
     const job = jobs.find((j) => j.id === jobId) || preview?.job;
     if (!job) return;
     // PATCH not supported on the detail view — re-upload mapping by hitting commit
