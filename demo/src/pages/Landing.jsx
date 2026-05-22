@@ -570,51 +570,85 @@ function Workflow_() {
   );
 }
 
-function Pricing() {
-  const plans = [
-    {
-      name: "Demo", price: "Free", desc: "This very page.",
-      features: ["18 feature modules", "5 industry presets", "AI assistant chat", "Reset anytime"],
-      cta: "Try now", to: "/signup",
-    },
-    {
-      name: "Pro", price: "₹2,499", suffix: "/mo", desc: "Real backend + team.",
-      features: ["Helpdesk + customer portal", "Form builder + e-signature", "WhatsApp + Razorpay", "Push notifications", "Audit logs + 2FA"],
-      cta: "Contact sales", to: "/signup", highlight: true,
-    },
-    {
-      name: "Enterprise", price: "Custom", desc: "Made for scale.",
-      features: ["AI (OpenAI / Anthropic)", "Advanced analytics + dashboard builder", "Cloud storage + plugins", "Multi-tenant isolation", "Dedicated support · 99.9% SLA"],
-      cta: "Get in touch", to: "/signup",
-    },
-  ];
+const SAAS_PLANS = [
+  {
+    name: "Demo", price: "Free", desc: "Perfect for testing & live demos.",
+    features: ["18 feature modules", "5 industry presets", "AI demo assistant", "Analytics dashboard", "Presentation mode", "Reset anytime"],
+    cta: "Try now", to: "/signup",
+  },
+  {
+    name: "Growth", price: "₹4,999", suffix: "/mo", desc: "For startups & growing businesses.",
+    features: ["Lead & deal management", "Configurable pipelines", "Mobile app access", "Reports & analytics", "Import / export", "Notifications", "Role-based access", "Up to 5 users"],
+    cta: "Start trial", to: "/signup",
+  },
+  {
+    name: "Business", price: "₹9,999", suffix: "/mo", desc: "Advanced operations & automation.",
+    features: ["Everything in Growth", "Helpdesk + customer portal", "Custom fields engine", "Automation workflows", "Audit logs & 2FA", "Dashboard builder", "API access", "Up to 25 users"],
+    cta: "Start trial", to: "/signup", highlight: true, badge: "Most Popular",
+  },
+];
 
+const SOURCE_PLANS = [
+  {
+    name: "Starter License", price: "₹3L+", desc: "Get the full code, deploy it yourself.",
+    features: ["Full source code", "Web + mobile apps", "Documentation", "Basic deployment support"],
+  },
+  {
+    name: "White-Label Commercial License", price: "₹8L – ₹15L", desc: "Resell under your brand.",
+    features: ["Full platform access", "White-label rights", "Custom branding", "Deployment assistance", "Priority support"],
+    highlight: true,
+  },
+  {
+    name: "Exclusive Ownership / Acquisition", price: "₹25L – ₹50L+", desc: "Buy the platform outright.",
+    features: ["Complete ownership transfer", "Full source code rights", "SaaS platform rights", "Mobile app rights", "Demo platform included", "Enterprise modules included"],
+  },
+];
+
+const ADDITIONAL_SERVICES = [
+  { service: "White-label branding", price: "₹50k+" },
+  { service: "Mobile app branding", price: "₹75k+" },
+  { service: "Dedicated deployment", price: "₹1L+" },
+  { service: "Custom integrations", price: "Custom" },
+  { service: "WhatsApp setup", price: "₹25k+" },
+  { service: "Annual support contract", price: "₹50k+ / year" },
+];
+
+function Pricing() {
   return (
     <section id="pricing" className="py-28 px-6">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
+        {/* Header */}
+        <div className="text-center mb-14">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400/10 border border-yellow-400/30 mb-4">
+            <Sparkles size={12} className="text-yellow-400" />
+            <span className="text-[10px] tracking-widest uppercase text-yellow-300 font-bold">Pricing</span>
+          </div>
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
             Simple <span className="gradient-text">honest pricing.</span>
           </h2>
-          <p className="text-gray-400 mt-4">The demo is free forever. Plans below apply to the full hosted product.</p>
+          <p className="text-gray-400 mt-4 max-w-2xl mx-auto">
+            Start free. Scale on a SaaS plan. Or own the entire platform — your choice.
+          </p>
         </div>
-        <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto">
-          {plans.map((p, i) => (
+
+        {/* ── SaaS plans ── */}
+        <div className="grid md:grid-cols-3 gap-5 max-w-6xl mx-auto">
+          {SAAS_PLANS.map((p, i) => (
             <motion.div
               key={p.name}
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              className={`relative rounded-2xl p-6 ${
+              transition={{ delay: i * 0.08 }}
+              className={`relative rounded-2xl p-6 flex flex-col ${
                 p.highlight
                   ? "bg-gradient-to-b from-yellow-400/10 to-transparent border-2 border-yellow-400/40"
                   : "glass"
               }`}
             >
-              {p.highlight && (
+              {p.badge && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 text-black text-[10px] font-bold uppercase tracking-wider">
-                  Most popular
+                  ⭐ {p.badge}
                 </div>
               )}
               <div className="text-sm text-gray-400">{p.name}</div>
@@ -623,11 +657,11 @@ function Pricing() {
                 {p.suffix && <span className="text-sm text-gray-500">{p.suffix}</span>}
               </div>
               <p className="text-sm text-gray-500 mt-2">{p.desc}</p>
-              <ul className="mt-5 space-y-2">
+              <ul className="mt-5 space-y-2 flex-1">
                 {p.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm text-gray-300">
-                    <Check size={14} className="text-emerald-400 flex-shrink-0" />
-                    {f}
+                  <li key={f} className="flex items-start gap-2 text-sm text-gray-300">
+                    <Check size={14} className="text-emerald-400 flex-shrink-0 mt-0.5" />
+                    <span>{f}</span>
                   </li>
                 ))}
               </ul>
@@ -639,10 +673,172 @@ function Pricing() {
                     : "bg-white/5 border border-white/10 hover:bg-white/10"
                 }`}
               >
-                {p.cta}
+                {p.cta} <ArrowRight size={14} className="ml-1.5" />
               </Link>
             </motion.div>
           ))}
+        </div>
+
+        {/* ── AI Intelligence Pack (add-on) ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-8 max-w-6xl mx-auto rounded-2xl p-6 md:p-8 bg-gradient-to-br from-violet-500/15 via-fuchsia-500/10 to-sky-500/10 border-2 border-violet-400/30 relative overflow-hidden"
+        >
+          <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-violet-500/20 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full bg-fuchsia-500/20 blur-3xl pointer-events-none" />
+          <div className="relative grid md:grid-cols-3 gap-6 items-center">
+            <div className="md:col-span-1">
+              <div className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full bg-violet-400/20 border border-violet-400/40 text-[10px] font-bold uppercase tracking-wider text-violet-200">
+                <Sparkles size={10} /> Add-on
+              </div>
+              <h3 className="text-2xl font-bold mt-2">AI Intelligence Pack</h3>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-3xl font-bold text-violet-300">+ ₹20,000</span>
+                <span className="text-sm text-gray-400">/mo</span>
+              </div>
+              <p className="text-sm text-gray-400 mt-2">AI-powered sales intelligence on top of any SaaS plan.</p>
+              <button
+                onClick={() => {}}
+                className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white text-sm font-semibold hover:scale-[1.02] transition"
+              >
+                Add to plan <ArrowRight size={14} />
+              </button>
+            </div>
+            <div className="md:col-span-2 grid sm:grid-cols-2 gap-2">
+              {[
+                "AI lead summaries",
+                "AI follow-up generation",
+                "AI assistant chat",
+                "AI deal risk analysis",
+                "AI sales insights",
+                "AI drafting tools",
+                "Priority AI processing",
+              ].map((f) => (
+                <div key={f} className="flex items-center gap-2 text-sm text-gray-200">
+                  <Sparkles size={12} className="text-violet-300 flex-shrink-0" />
+                  {f}
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* ── Enterprise band ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-6 max-w-6xl mx-auto rounded-2xl p-6 md:p-8 bg-gradient-to-r from-gray-900/80 via-black to-gray-900/80 border border-white/10"
+        >
+          <div className="grid md:grid-cols-3 gap-6 items-center">
+            <div>
+              <div className="text-xs uppercase tracking-widest text-gray-400 font-bold">Enterprise</div>
+              <div className="text-3xl font-bold mt-1">Custom Pricing</div>
+              <p className="text-sm text-gray-400 mt-2">Built for enterprise scale, multi-branch, and white-label SaaS.</p>
+            </div>
+            <ul className="md:col-span-1 grid grid-cols-1 gap-1.5 text-sm text-gray-300">
+              <li className="flex items-center gap-2"><Check size={12} className="text-emerald-400" /> Multi-tenant deployment</li>
+              <li className="flex items-center gap-2"><Check size={12} className="text-emerald-400" /> White-label branding</li>
+              <li className="flex items-center gap-2"><Check size={12} className="text-emerald-400" /> Dedicated support</li>
+              <li className="flex items-center gap-2"><Check size={12} className="text-emerald-400" /> SLA & onboarding</li>
+            </ul>
+            <ul className="md:col-span-1 grid grid-cols-1 gap-1.5 text-sm text-gray-300">
+              <li className="flex items-center gap-2"><Check size={12} className="text-emerald-400" /> Custom integrations</li>
+              <li className="flex items-center gap-2"><Check size={12} className="text-emerald-400" /> Cloud storage integrations</li>
+              <li className="flex items-center gap-2"><Check size={12} className="text-emerald-400" /> Plugin ecosystem</li>
+              <li className="flex items-center gap-2"><Check size={12} className="text-emerald-400" /> Unlimited scale options</li>
+            </ul>
+          </div>
+          <Link
+            to="/signup"
+            className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-black font-semibold text-sm hover:bg-gray-100 transition"
+          >
+            📞 Contact Sales <ArrowRight size={14} />
+          </Link>
+        </motion.div>
+
+        {/* ── Source Code / Platform Sale ── */}
+        <div className="mt-24">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-400/10 border border-sky-400/30 mb-3">
+              <Building size={12} className="text-sky-400" />
+              <span className="text-[10px] tracking-widest uppercase text-sky-300 font-bold">💼 Source Code / Platform Sale</span>
+            </div>
+            <h3 className="text-3xl md:text-4xl font-bold tracking-tight">
+              Own the <span className="gradient-text">entire platform.</span>
+            </h3>
+            <p className="text-gray-400 mt-3 max-w-2xl mx-auto">
+              Not a recurring fee — a one-time payment for the full codebase or exclusive rights.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-5 max-w-6xl mx-auto">
+            {SOURCE_PLANS.map((p, i) => (
+              <motion.div
+                key={p.name}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08 }}
+                className={`relative rounded-2xl p-6 flex flex-col ${
+                  p.highlight
+                    ? "bg-gradient-to-b from-sky-400/10 to-transparent border-2 border-sky-400/40"
+                    : "glass"
+                }`}
+              >
+                <div className="text-sm text-gray-400">{p.name}</div>
+                <div className="mt-2 text-3xl font-bold">{p.price}</div>
+                <p className="text-sm text-gray-500 mt-2">{p.desc}</p>
+                <ul className="mt-5 space-y-2 flex-1">
+                  {p.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-sm text-gray-300">
+                      <Check size={14} className="text-sky-400 flex-shrink-0 mt-0.5" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  to="/signup"
+                  className={`mt-6 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold text-sm transition ${
+                    p.highlight
+                      ? "bg-gradient-to-r from-sky-400 to-blue-500 text-black hover:scale-[1.02]"
+                      : "bg-white/5 border border-white/10 hover:bg-white/10"
+                  }`}
+                >
+                  Enquire now <ArrowRight size={14} />
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Additional Services ── */}
+        <div className="mt-20 max-w-4xl mx-auto">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-400/10 border border-orange-400/30 mb-3">
+              <span className="text-[10px] tracking-widest uppercase text-orange-300 font-bold">🔥 Additional Services</span>
+            </div>
+            <h3 className="text-2xl md:text-3xl font-bold">A la carte add-ons</h3>
+          </div>
+          <div className="rounded-2xl glass overflow-hidden border border-white/10">
+            <table className="w-full text-sm">
+              <thead className="bg-white/5">
+                <tr>
+                  <th className="text-left px-5 py-3 text-[10px] uppercase tracking-widest text-gray-400 font-bold">Service</th>
+                  <th className="text-right px-5 py-3 text-[10px] uppercase tracking-widest text-gray-400 font-bold">Pricing</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ADDITIONAL_SERVICES.map((s, i) => (
+                  <tr key={s.service} className={i % 2 === 0 ? "bg-white/[0.01]" : ""}>
+                    <td className="px-5 py-3.5 text-gray-200">{s.service}</td>
+                    <td className="px-5 py-3.5 text-right font-semibold text-yellow-300">{s.price}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>

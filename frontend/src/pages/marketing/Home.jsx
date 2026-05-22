@@ -109,9 +109,9 @@ const testimonials = [
 ];
 
 const pricingTeaser = [
-  { name: "Free",       price: "₹0",    period: "forever",    blurb: "Up to 100 leads · 1 user · Mobile app" },
-  { name: "Pro",        price: "₹2,499", period: "/mo",       blurb: "Unlimited leads · 10 users · Custom fields · Lead scoring · 2FA", highlight: true },
-  { name: "Enterprise", price: "₹9,999", period: "/mo",       blurb: "Multi-tenant · White-label · Dedicated CSM · 99.9% SLA" },
+  { name: "Demo",      price: "Free",   period: "",        blurb: "18 feature modules · 5 industry presets · AI demo assistant · Reset anytime" },
+  { name: "Growth",    price: "₹4,999", period: "/mo",     blurb: "5 users · Pipelines · Mobile app · Reports · Import/export · Notifications" },
+  { name: "Business",  price: "₹9,999", period: "/mo",     blurb: "25 users · Helpdesk + portal · Automation · Audit logs + 2FA · API access", highlight: true },
 ];
 
 const topFaqs = [
@@ -1143,7 +1143,7 @@ export default function Home() {
             eyebrow="Pricing"
             title="Honest, simple,"
             accent="₹-priced."
-            subtitle="Free plan covers solos. Paid starts at ₹2,499/mo. Cancel anytime, 14-day money-back guarantee."
+            subtitle="Free demo. SaaS plans from ₹4,999/mo. Or own the entire platform — source code from ₹3L. Cancel anytime, 14-day money-back guarantee."
             eyebrowColor="text-emerald-400"
             accentColor="from-emerald-300 to-green-500"
           />
