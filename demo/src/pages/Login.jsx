@@ -1,13 +1,17 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Zap, Mail, Lock, ArrowRight, Sparkles } from "lucide-react";
+import { Zap, Mail, Lock, ArrowRight, Sparkles, Users, Crown, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
+
+const DEMO_EMAIL = "demo@demo.com";
+const DEMO_PASSWORD = "demo123";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [quickRole, setQuickRole] = useState(null); // "user" | "admin" while auto-logging
   const { login, loading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -23,9 +27,18 @@ export default function Login() {
     else setError(res.error);
   }
 
-  function fillDemo() {
-    setEmail("demo@demo.com");
-    setPassword("demo123");
+  async function quickLogin(role) {
+    setError("");
+    setQuickRole(role);
+    setEmail(DEMO_EMAIL);
+    setPassword(DEMO_PASSWORD);
+    const res = await login(DEMO_EMAIL, DEMO_PASSWORD);
+    if (res.ok) {
+      navigate(role === "admin" ? "/admin" : "/app", { replace: true });
+    } else {
+      setError(res.error || "Auto-login failed. Try the manual form below.");
+      setQuickRole(null);
+    }
   }
 
   return (
@@ -54,14 +67,70 @@ export default function Login() {
             <p className="text-sm text-gray-400 mt-1">Sign in to continue to your demo workspace.</p>
           </div>
 
-          <button
-            type="button"
-            onClick={fillDemo}
-            className="w-full mb-5 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 text-sm hover:bg-yellow-400/15 transition"
-          >
-            <Sparkles size={14} />
-            Auto-fill demo credentials
-          </button>
+          {/* One-click demo entry — choose perspective */}
+          <div className="mb-5">
+            <div className="flex items-center gap-2 mb-2.5">
+              <Sparkles size={12} className="text-yellow-400" />
+              <p className="text-[10px] uppercase tracking-widest text-yellow-300 font-bold">
+                One-click demo
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => quickLogin("user")}
+                disabled={loading}
+                className="group relative overflow-hidden flex flex-col items-start gap-1.5 p-3 rounded-xl bg-gradient-to-br from-sky-500/10 to-blue-500/5 border border-sky-400/30 hover:border-sky-400/50 hover:bg-sky-500/15 transition text-left disabled:opacity-60"
+              >
+                <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center">
+                  {quickRole === "user" ? (
+                    <Loader2 size={14} className="text-black animate-spin" />
+                  ) : (
+                    <Users size={14} className="text-black" />
+                  )}
+                </span>
+                <span className="text-sm font-bold text-sky-200">Try as User</span>
+                <span className="text-[10px] text-sky-300/70 leading-tight">
+                  Sales rep view · leads + deals
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => quickLogin("admin")}
+                disabled={loading}
+                className="group relative overflow-hidden flex flex-col items-start gap-1.5 p-3 rounded-xl bg-gradient-to-br from-yellow-500/10 to-amber-500/5 border border-yellow-400/30 hover:border-yellow-400/50 hover:bg-yellow-500/15 transition text-left disabled:opacity-60"
+                style={{ boxShadow: quickRole === "admin" ? "0 0 20px rgba(250,204,21,0.25)" : undefined }}
+              >
+                <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-400 via-amber-500 to-orange-500 flex items-center justify-center">
+                  {quickRole === "admin" ? (
+                    <Loader2 size={14} className="text-black animate-spin" />
+                  ) : (
+                    <Crown size={14} className="text-black" />
+                  )}
+                </span>
+                <span className="text-sm font-bold text-yellow-200">Try as Admin</span>
+                <span className="text-[10px] text-yellow-300/70 leading-tight">
+                  Full admin console
+                </span>
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-500 mt-2 text-center">
+              No sign-up required. Click either button — instant access.
+            </p>
+          </div>
+
+          {/* Manual login divider */}
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="px-3 text-[10px] uppercase tracking-widest text-gray-500 bg-gray-950">
+                Or sign in manually
+              </span>
+            </div>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

@@ -11,6 +11,8 @@ import {
   Command,
   Settings as SettingsIcon,
   X,
+  Crown,
+  ArrowRight,
 } from "lucide-react";
 
 const links = [
@@ -85,10 +87,52 @@ export default function Sidebar({ open, onClose }) {
           ))}
         </nav>
 
-        <div className="px-3 pb-4">
-          <div className="rounded-xl p-4 bg-gradient-to-br from-yellow-400/10 via-amber-500/5 to-transparent border border-yellow-400/15">
-            <div className="text-xs text-yellow-300 font-semibold mb-1">Demo mode</div>
-            <p className="text-xs text-gray-400 leading-relaxed">
+        <div className="px-3 pb-4 space-y-2">
+          {/* Admin Console CTA */}
+          <Link
+            to="/admin"
+            onClick={onClose}
+            className="group relative block overflow-hidden rounded-xl p-3 border border-yellow-400/40
+                       bg-gradient-to-br from-yellow-500/15 via-amber-500/10 to-orange-500/15
+                       hover:from-yellow-500/25 hover:via-amber-500/20 hover:to-orange-500/25
+                       transition-all"
+            style={{ boxShadow: "0 0 20px rgba(250,204,21,0.15)" }}
+          >
+            <span
+              className="absolute inset-0 -translate-x-full group-hover:translate-x-full
+                         transition-transform duration-1000 pointer-events-none"
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
+              }}
+            />
+            <div className="relative flex items-center gap-3">
+              <span
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0
+                           bg-gradient-to-br from-yellow-400 via-amber-500 to-orange-500
+                           border border-yellow-300/40"
+                style={{ boxShadow: "0 0 14px rgba(250,204,21,0.5)" }}
+              >
+                <Crown size={16} className="text-black" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-yellow-300/90">
+                  Admin
+                </p>
+                <p className="text-xs font-semibold text-white truncate">
+                  Open admin console
+                </p>
+              </div>
+              <ArrowRight
+                size={14}
+                className="text-yellow-300 transition-transform group-hover:translate-x-1"
+              />
+            </div>
+          </Link>
+
+          <div className="rounded-xl p-3 bg-gradient-to-br from-yellow-400/8 via-amber-500/4 to-transparent border border-yellow-400/15">
+            <div className="text-[10px] text-yellow-300 font-semibold mb-0.5">Demo mode</div>
+            <p className="text-[10px] text-gray-400 leading-relaxed">
               Data lives in your browser. Use Settings → Reset to start over.
             </p>
           </div>

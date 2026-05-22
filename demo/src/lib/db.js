@@ -26,18 +26,64 @@ function seed() {
   const now = Date.now();
   const day = 86_400_000;
 
+  const hour = 3_600_000;
   return {
     users: [
-      {
-        id: "u_demo",
-        name: "Demo User",
-        email: "demo@demo.com",
-        password: "demo123",
-        company: "Acme Solar",
-        role: "admin",
-        avatar: "DU",
-        createdAt: now - 30 * day,
-      },
+      { id: "u_demo",   name: "Demo User",     email: "demo@demo.com",         password: "demo123", company: "Acme Solar", role: "OWNER",   avatar: "DU", status: "Active",   createdAt: now - 30 * day, lastLogin: now - 1 * hour },
+      { id: "u_priya",  name: "Priya Sharma",  email: "priya@acmesolar.in",                          company: "Acme Solar", role: "ADMIN",   avatar: "PS", status: "Active",   createdAt: now - 25 * day, lastLogin: now - 2 * day },
+      { id: "u_aarav",  name: "Aarav Khanna",  email: "aarav@acmesolar.in",                          company: "Acme Solar", role: "MANAGER", avatar: "AK", status: "Active",   createdAt: now - 18 * day, lastLogin: now - 1 * day },
+      { id: "u_meera",  name: "Meera Joshi",   email: "meera@acmesolar.in",                          company: "Acme Solar", role: "SALES",   avatar: "MJ", status: "Active",   createdAt: now - 12 * day, lastLogin: now - 4 * hour },
+      { id: "u_karan",  name: "Karan Bedi",    email: "karan@acmesolar.in",                          company: "Acme Solar", role: "SALES",   avatar: "KB", status: "Active",   createdAt: now - 8 * day,  lastLogin: now - 2 * hour },
+      { id: "u_sanya",  name: "Sanya Rao",     email: "sanya@acmesolar.in",                          company: "Acme Solar", role: "SALES",   avatar: "SR", status: "Inactive", createdAt: now - 5 * day,  lastLogin: now - 9 * day },
+      { id: "u_rohan",  name: "Rohan Verma",   email: "rohan@acmesolar.in",                          company: "Acme Solar", role: "SUPPORT", avatar: "RV", status: "Active",   createdAt: now - 14 * day, lastLogin: now - 1 * hour },
+    ],
+    pipelineStages: {
+      lead: [
+        { id: "ls1", slug: "NEW",            label: "New",            color: "#38bdf8", order: 1 },
+        { id: "ls2", slug: "CONTACTED",      label: "Contacted",      color: "#60a5fa", order: 2 },
+        { id: "ls3", slug: "QUALIFIED",      label: "Qualified",      color: "#a78bfa", order: 3 },
+        { id: "ls4", slug: "PROPOSAL_SENT",  label: "Proposal Sent",  color: "#facc15", order: 4 },
+        { id: "ls5", slug: "NEGOTIATION",    label: "Negotiation",    color: "#f59e0b", order: 5 },
+        { id: "ls6", slug: "WON",            label: "Won",            color: "#22c55e", order: 6 },
+        { id: "ls7", slug: "LOST",           label: "Lost",           color: "#ef4444", order: 7 },
+      ],
+      deal: [
+        { id: "ds1", slug: "QUALIFICATION", label: "Qualification", color: "#a78bfa", order: 1 },
+        { id: "ds2", slug: "PROPOSAL",      label: "Proposal",      color: "#facc15", order: 2 },
+        { id: "ds3", slug: "NEGOTIATION",   label: "Negotiation",   color: "#f59e0b", order: 3 },
+        { id: "ds4", slug: "WON",           label: "Won",           color: "#22c55e", order: 4 },
+        { id: "ds5", slug: "LOST",          label: "Lost",          color: "#ef4444", order: 5 },
+      ],
+    },
+    customFields: [
+      { id: uid("cf"), module: "lead", label: "Roof Type",     slug: "roof_type",     type: "select", options: ["Concrete", "Metal Sheet", "Tile", "Asbestos"], required: false, createdAt: now - 20 * day },
+      { id: uid("cf"), module: "lead", label: "Property Area (sq ft)", slug: "area",  type: "number", required: true,  createdAt: now - 18 * day },
+      { id: uid("cf"), module: "lead", label: "Backup Required",      slug: "backup", type: "boolean", required: false, createdAt: now - 14 * day },
+      { id: uid("cf"), module: "deal", label: "Net Metering",         slug: "net_meter", type: "boolean", required: true, createdAt: now - 12 * day },
+      { id: uid("cf"), module: "deal", label: "GST Number",           slug: "gstin",  type: "text", required: false, createdAt: now - 10 * day },
+      { id: uid("cf"), module: "deal", label: "Subsidy Eligible",     slug: "subsidy", type: "select", options: ["Yes — Residential", "Yes — Commercial", "No"], required: false, createdAt: now - 8 * day },
+    ],
+    automationRules: [
+      { id: uid("ar"), name: "Auto-assign hot leads",  trigger: "Lead score ≥ 70",            action: "Assign to senior sales rep + send WhatsApp",     enabled: true,  runs: 142, lastRun: now - 1 * hour },
+      { id: uid("ar"), name: "Welcome new leads",      trigger: "Lead created",               action: "Send WhatsApp template 'welcome_v2'",            enabled: true,  runs: 318, lastRun: now - 30 * 60_000 },
+      { id: uid("ar"), name: "Stale deal reminder",    trigger: "Deal idle for 7 days",       action: "Notify assignee + create follow-up task",        enabled: true,  runs: 64,  lastRun: now - 6 * hour },
+      { id: uid("ar"), name: "Lost-deal feedback",     trigger: "Deal moved to Lost",         action: "Send feedback form to customer email",           enabled: false, runs: 12,  lastRun: now - 4 * day },
+      { id: uid("ar"), name: "High-value deal alert",  trigger: "Deal value ≥ ₹10,00,000",    action: "Notify all managers + add to executive review", enabled: true,  runs: 8,   lastRun: now - 12 * hour },
+      { id: uid("ar"), name: "Payment reminder",       trigger: "Invoice unpaid 7 days past", action: "Send WhatsApp + email reminder",                 enabled: true,  runs: 47,  lastRun: now - 2 * hour },
+    ],
+    auditLogs: [
+      { id: uid("au"), at: now - 1 * hour,       actor: "Priya Sharma",  actorAvatar: "PS", action: "UPDATED", entity: "Lead",     target: "Mehta Industries",                changes: "stage: Contacted → Qualified" },
+      { id: uid("au"), at: now - 2 * hour,       actor: "Aarav Khanna",  actorAvatar: "AK", action: "CREATED", entity: "Deal",     target: "Patel Hospitals — Net-Metering",  changes: "value: ₹18,50,000, status: Proposal" },
+      { id: uid("au"), at: now - 4 * hour,       actor: "Meera Joshi",   actorAvatar: "MJ", action: "UPDATED", entity: "Lead",     target: "Rohit Sharma",                    changes: "owner: unassigned → Meera Joshi" },
+      { id: uid("au"), at: now - 6 * hour,       actor: "Demo User",     actorAvatar: "DU", action: "INVITED", entity: "User",     target: "rohan@acmesolar.in",              changes: "role: SUPPORT" },
+      { id: uid("au"), at: now - 8 * hour,       actor: "Karan Bedi",    actorAvatar: "KB", action: "DELETED", entity: "Document", target: "Aadhaar — Rohit Sharma",          changes: "manually removed" },
+      { id: uid("au"), at: now - 12 * hour,      actor: "System",        actorAvatar: "SY", action: "RAN",     entity: "Automation", target: "Welcome new leads",             changes: "3 leads matched, 3 WhatsApp sent" },
+      { id: uid("au"), at: now - 18 * hour,      actor: "Priya Sharma",  actorAvatar: "PS", action: "UPDATED", entity: "Pipeline", target: "Lead pipeline",                   changes: "added stage 'PROPOSAL_SENT'" },
+      { id: uid("au"), at: now - 22 * hour,      actor: "Demo User",     actorAvatar: "DU", action: "EXPORTED", entity: "Report",  target: "Sales by Source — Q4",            changes: "CSV download by Demo User" },
+      { id: uid("au"), at: now - 1 * day,        actor: "Aarav Khanna",  actorAvatar: "AK", action: "CREATED", entity: "Deal",     target: "Reddy Constructions — Phase 2",   changes: "value: ₹7,20,000" },
+      { id: uid("au"), at: now - 1.5 * day,      actor: "System",        actorAvatar: "SY", action: "FAILED",  entity: "Automation", target: "Payment reminder",              changes: "WhatsApp API rate limit hit" },
+      { id: uid("au"), at: now - 2 * day,        actor: "Meera Joshi",   actorAvatar: "MJ", action: "UPDATED", entity: "Lead",     target: "Neha Kapoor",                     changes: "stage: Qualified → Proposal Sent" },
+      { id: uid("au"), at: now - 3 * day,        actor: "Demo User",     actorAvatar: "DU", action: "ENABLED", entity: "2FA",      target: "Demo User account",               changes: "TOTP authenticator activated" },
     ],
     leads: [
       { id: uid("ld"), name: "Rohit Sharma", company: "Sunrise Realty", email: "rohit@sunrise.in", phone: "+91 98765 12340", source: "Website", stage: "New", score: 72, value: 240000, owner: "Demo User", createdAt: now - 2 * day, notes: "Interested in 5kW residential setup." },
