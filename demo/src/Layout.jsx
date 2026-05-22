@@ -5,6 +5,7 @@ import Sidebar from "./components/Sidebar.jsx";
 import Topbar from "./components/Topbar.jsx";
 import LiveTicker from "./components/LiveTicker.jsx";
 import DemoAssistant from "./components/DemoAssistant.jsx";
+import DemoBanner from "./components/DemoBanner.jsx";
 import PresentationOverlay from "./components/PresentationOverlay.jsx";
 import { useDemoMode } from "./context/DemoModeContext.jsx";
 
@@ -24,6 +25,7 @@ export default function Layout() {
       {!presentation && <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
 
       <div className="flex-1 flex flex-col min-w-0">
+        {!presentation && <DemoBanner />}
         {!presentation && <Topbar onMenu={() => setSidebarOpen(true)} />}
         <main className="flex-1 overflow-y-auto bg-gray-950/40">
           <AnimatePresence mode="wait">

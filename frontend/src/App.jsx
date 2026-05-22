@@ -23,9 +23,11 @@ import { AuthProvider } from './context/AuthContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import SuperAdminRoute from './components/SuperAdminRoute.jsx'
+import OrgAdminRoute from './components/OrgAdminRoute.jsx'
 
 // Admin
 import AdminLayout from './layouts/AdminLayout.jsx'
+import OrgAdminLayout from './layouts/OrgAdminLayout.jsx'
 import AdminOverview from './pages/admin/AdminOverview.jsx'
 import AdminUsers from './pages/admin/AdminUsers.jsx'
 import AdminOrganizations from './pages/admin/AdminOrganizations.jsx'
@@ -173,6 +175,48 @@ const router = createBrowserRouter(
 
         <Route path='reports' element={<AdminReports />} />
         <Route path='system' element={<AdminSystem />} />
+      </Route>
+
+      {/* Organization-admin console — for company OWNER/ADMIN users.
+          Reuses admin pages; backend `scope_qs` already filters to user's org.
+          Excludes platform-wide pages: Organizations, Plugins, API Docs, System. */}
+      <Route
+        path='/manage'
+        element={
+          <OrgAdminRoute>
+            <OrgAdminLayout />
+          </OrgAdminRoute>
+        }
+      >
+        <Route index element={<AdminOverview />} />
+        <Route path='users' element={<AdminUsers />} />
+        <Route path='pipelines' element={<AdminPipelines />} />
+        <Route path='custom-fields' element={<AdminCustomFields />} />
+        <Route path='automation' element={<AdminAutomation />} />
+        <Route path='whatsapp' element={<AdminWhatsApp />} />
+        <Route path='billing' element={<AdminBilling />} />
+        <Route path='audit-logs' element={<AdminAuditLogs />} />
+        <Route path='two-factor' element={<AdminTwoFactor />} />
+        <Route path='lead-scoring' element={<AdminLeadScoring />} />
+        <Route path='sales-targets' element={<AdminSalesTargets />} />
+        <Route path='call-logs' element={<AdminCallLogs />} />
+        <Route path='saved-views' element={<AdminSavedViews />} />
+        <Route path='filters' element={<AdminFilters />} />
+        <Route path='import-export' element={<AdminImportExport />} />
+        <Route path='distribution' element={<AdminDistribution />} />
+        <Route path='sessions' element={<AdminSessions />} />
+        <Route path='approvals' element={<AdminApprovals />} />
+        <Route path='helpdesk' element={<AdminHelpdesk />} />
+        <Route path='portal-tokens' element={<AdminPortalTokens />} />
+        <Route path='knowledge-base' element={<AdminKnowledgeBase />} />
+        <Route path='forms' element={<AdminForms />} />
+        <Route path='esign' element={<AdminESignature />} />
+        <Route path='analytics' element={<AdminAnalytics />} />
+        <Route path='ai' element={<AdminAI />} />
+        <Route path='backups' element={<AdminBackups />} />
+        <Route path='cloud-storage' element={<AdminCloudStorage />} />
+        <Route path='push' element={<AdminPush />} />
+        <Route path='dashboard-builder' element={<AdminDashboardBuilder />} />
       </Route>
 
       {/* Customer portal — separate auth (Portal token) */}

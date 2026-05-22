@@ -16,6 +16,7 @@ import {
   CheckSquare,
   Bell,
   FileText,
+  Building2,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.jsx";
 
@@ -123,7 +124,8 @@ function Sidebar({ sidebarOpen, setSidebarOpen }) {
 /* ── Sidebar Inner Content ── */
 function SidebarContent({ setSidebarOpen, isMobile }) {
   const navigate = useNavigate();
-  const { username, logout, isSuperUser, organization } = useAuth();
+  const { username, logout, isSuperUser, organization, role } = useAuth();
+  const isOrgAdmin = !isSuperUser && (role === "OWNER" || role === "ADMIN");
 
   const handleLogout = () => {
     logout();
@@ -230,6 +232,51 @@ function SidebarContent({ setSidebarOpen, isMobile }) {
 
       {/* User + Logout */}
       <div className="px-3 pb-5 mt-auto space-y-2">
+        {isOrgAdmin && (
+          <Link
+            to="/manage"
+            onClick={() => isMobile && setSidebarOpen(false)}
+            className="group relative block overflow-hidden rounded-xl p-3 border border-sky-400/40
+                       bg-gradient-to-br from-sky-500/15 via-blue-500/10 to-cyan-500/15
+                       hover:from-sky-500/25 hover:via-blue-500/20 hover:to-cyan-500/25
+                       transition-all duration-300"
+            style={{ boxShadow: "0 0 20px rgba(56,189,248,0.15)" }}
+          >
+            <span
+              className="absolute inset-0 -translate-x-full group-hover:translate-x-full
+                         transition-transform duration-1000 pointer-events-none"
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
+              }}
+            />
+            <div className="relative flex items-center gap-3">
+              <span
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0
+                           bg-gradient-to-br from-sky-400 via-blue-500 to-cyan-500
+                           border border-sky-300/40"
+                style={{ boxShadow: "0 0 14px rgba(56,189,248,0.5)" }}
+              >
+                <Building2 size={16} className="text-black" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-sky-300/90">
+                    Org Admin
+                  </p>
+                  <ShieldCheck size={10} className="text-sky-300/90" />
+                </div>
+                <p className="text-xs font-semibold text-white truncate">
+                  Manage organization
+                </p>
+              </div>
+              <ArrowRight
+                size={14}
+                className="text-sky-300 transition-transform group-hover:translate-x-1"
+              />
+            </div>
+          </Link>
+        )}
         {isSuperUser && (
           <Link
             to="/admin"
