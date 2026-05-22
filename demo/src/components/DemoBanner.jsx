@@ -13,8 +13,9 @@ import { db } from "../lib/db.js";
 const DISMISS_KEY = "crm_demo_banner_dismissed";
 
 // Where to send users who click "Get Full Version".
-// Replace with your real product URL before deploying.
-const FULL_VERSION_URL = "https://yourcrmdomain.com";
+// Set VITE_FULL_VERSION_URL env var in Vercel project settings to override.
+const FULL_VERSION_URL =
+  import.meta.env.VITE_FULL_VERSION_URL || "mailto:sales@yourcrmdomain.com?subject=CRM%20Suite%20Enquiry";
 
 export default function DemoBanner() {
   const [dismissed, setDismissed] = useState(

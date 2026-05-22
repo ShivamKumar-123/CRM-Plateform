@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { IndustryProvider } from "./context/IndustryContext.jsx";
@@ -20,15 +21,23 @@ import Automation from "./pages/Automation.jsx";
 import CommandCenter from "./pages/CommandCenter.jsx";
 import Settings from "./pages/Settings.jsx";
 
-// Admin
-import AdminLayout from "./layouts/AdminLayout.jsx";
-import AdminOverview from "./pages/admin/AdminOverview.jsx";
-import AdminTeam from "./pages/admin/AdminTeam.jsx";
-import AdminPipelines from "./pages/admin/AdminPipelines.jsx";
-import AdminCustomFields from "./pages/admin/AdminCustomFields.jsx";
-import AdminAuditLogs from "./pages/admin/AdminAuditLogs.jsx";
-import AdminAutomation from "./pages/admin/AdminAutomation.jsx";
-import AdminTwoFactor from "./pages/admin/AdminTwoFactor.jsx";
+// Admin — lazy-loaded so the admin bundle only downloads when /admin is hit
+const AdminLayout      = lazy(() => import("./layouts/AdminLayout.jsx"));
+const AdminOverview    = lazy(() => import("./pages/admin/AdminOverview.jsx"));
+const AdminTeam        = lazy(() => import("./pages/admin/AdminTeam.jsx"));
+const AdminPipelines   = lazy(() => import("./pages/admin/AdminPipelines.jsx"));
+const AdminCustomFields = lazy(() => import("./pages/admin/AdminCustomFields.jsx"));
+const AdminAuditLogs   = lazy(() => import("./pages/admin/AdminAuditLogs.jsx"));
+const AdminAutomation  = lazy(() => import("./pages/admin/AdminAutomation.jsx"));
+const AdminTwoFactor   = lazy(() => import("./pages/admin/AdminTwoFactor.jsx"));
+
+function AdminFallback() {
+  return (
+    <div className="min-h-screen bg-black flex items-center justify-center text-gray-400 text-sm">
+      Loading admin console…
+    </div>
+  );
+}
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -60,17 +69,19 @@ const router = createBrowserRouter(
         path="/admin"
         element={
           <ProtectedRoute>
-            <AdminLayout />
+            <Suspense fallback={<AdminFallback />}>
+              <AdminLayout />
+            </Suspense>
           </ProtectedRoute>
         }
       >
-        <Route index element={<AdminOverview />} />
-        <Route path="team" element={<AdminTeam />} />
-        <Route path="pipelines" element={<AdminPipelines />} />
-        <Route path="custom-fields" element={<AdminCustomFields />} />
-        <Route path="automation" element={<AdminAutomation />} />
-        <Route path="audit-logs" element={<AdminAuditLogs />} />
-        <Route path="two-factor" element={<AdminTwoFactor />} />
+        <Route index element={<Suspense fallback={<AdminFallback />}><AdminOverview /></Suspense>} />
+        <Route path="team" element={<Suspense fallback={<AdminFallback />}><AdminTeam /></Suspense>} />
+        <Route path="pipelines" element={<Suspense fallback={<AdminFallback />}><AdminPipelines /></Suspense>} />
+        <Route path="custom-fields" element={<Suspense fallback={<AdminFallback />}><AdminCustomFields /></Suspense>} />
+        <Route path="automation" element={<Suspense fallback={<AdminFallback />}><AdminAutomation /></Suspense>} />
+        <Route path="audit-logs" element={<Suspense fallback={<AdminFallback />}><AdminAuditLogs /></Suspense>} />
+        <Route path="two-factor" element={<Suspense fallback={<AdminFallback />}><AdminTwoFactor /></Suspense>} />
       </Route>
     </>
   )
